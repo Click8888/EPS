@@ -1,15 +1,15 @@
 package main
 
 import (
+	"EPS/database"
 	"fmt"
 	"log"
-	"EPS/database"
+
 	//"github.com/Click8888/ElectricPowerSystem/middleware" что-то интересное
-	//"github.com/Click8888/ElectricPowerSystem/routes" Конечные точки запросов
+	"EPS/routes" 
 	"time"
 
 	"github.com/gin-contrib/cors"
-	"github.com/joho/godotenv"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,10 +21,6 @@ func main() {
 		User:     "postgres",
 		Password: "antivzlom",
 		DBName:   "test",
-	}
-
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
 	}
 
 	// Инициализация БД
@@ -53,8 +49,8 @@ func main() {
 	})
 
 	// Публичные маршруты (без аутентификации)
-	// r.POST("/api/register", routes.Register)
-	// r.POST("/api/login", routes.Login)
+	r.GET("/api/getparams", routes.GetDatabases)
+
 
 	// Выведите все зарегистрированные маршруты
 	fmt.Println("Registered routes:")

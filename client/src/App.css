@@ -1,13 +1,8 @@
 /* Основное содержимое */
-.main-content {
-  margin-left: 0;
-  transition: margin-left 0.3s;
-  min-height: calc(100vh - 56px);
+.erd-container {
+  height: 100vh;
+  width: 100vw;
 }
-
-  .main-content {
-    margin-left: 280px;
-  }
 
 .nav-link {
   color: rgba(255, 255, 255, 0.9);
@@ -28,4 +23,179 @@
 .nav-link i {
   margin-right: 12px;
   font-size: 1.1rem;
+}
+
+/* Контейнер области графиков */
+.charts-area-container {
+  overflow-y: auto;
+  padding: 0 15px;
+}
+
+/* Основной контейнер графиков */
+.charts-main-container {
+  border: 2px solid #555;
+  border-radius: 12px;
+  background: #3a3a3a;
+  min-height: calc(100vh - 180px); /* Высота экрана минус навбар и панель */
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Состояние когда нет графиков */
+.charts-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  color: #888;
+}
+
+/* Сетка графиков */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 20px;
+  padding: 10px;
+}
+
+/* Отдельный элемент графика */
+.chart-item {
+  cursor: grab;
+  transition: all 0.3s ease;
+}
+
+.chart-item:active {
+  cursor: grabbing;
+}
+
+.chart-item:hover {
+  transform: translateY(-2px);
+}
+
+/* Обертка графика */
+.chart-wrapper {
+  border: 1px solid #666;
+  border-radius: 8px;
+  background: #2a2a2a;
+  padding: 15px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.3s ease;
+}
+
+.chart-wrapper:hover {
+  border-color: #888;
+}
+
+/* Заголовок графика */
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #444;
+}
+
+.chart-title {
+  color: #fff;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+/* Область содержимого графика */
+.chart-content {
+  flex-grow: 1;
+  min-height: 300px;
+  width: 100%;
+  position: relative;
+}
+
+/* Подвал графика */
+.chart-footer {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #444;
+}
+
+/* Нижняя панель */
+.charts-bottom-panel {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  width: 20%;
+  transform: translateX(-50%);
+  background: #000;
+  padding: 15px 30px;
+  border-radius: 50px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.add-chart-btn {
+  border-radius: 25px;
+  padding: 10px 25px;
+  font-weight: 500;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .charts-main-container {
+    padding: 15px;
+    margin: 0 10px;
+  }
+  
+  .charts-bottom-panel {
+    bottom: 10px;
+    padding: 10px 20px;
+  }
+  
+  .add-chart-btn {
+    padding: 8px 20px;
+    font-size: 14px;
+  }
+}
+
+.draggable-handle {
+  cursor: grab;
+  user-select: none;
+}
+
+.draggable-handle:active {
+  cursor: grabbing;
+}
+
+.chart-content {
+  pointer-events: none; /* Отключаем события мыши для области графика */
+}
+
+.chart-content > * {
+  pointer-events: auto; /* Включаем события только для самого графика */
+}
+
+.chart-item {
+  transition: border-color 0.2s ease;
+  border: 2px solid transparent;
+  border-radius: 8px;
+}
+
+.chart-item:hover {
+  border-color: #444;
+}
+
+.chart-content {
+  pointer-events: none;
+}
+
+/* Стиль для подсветки при перетаскивании над целевым блоком */
+.chart-item.drag-over {
+  border-color: #2962FF !important;
+  background-color: rgba(41, 98, 255, 0.1);
 }

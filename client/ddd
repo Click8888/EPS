@@ -1,3 +1,60 @@
 1. Привязать БД к сайту
 2. запилить модальное окно после нажатия на кнопку "+"
 3. выровнять графики 111
+
+{charts.length === 0 ? (
+          <div className="text-center text-white mt-5">
+            <h4>Добавьте графики, нажав на кнопку ниже</h4>
+          </div>
+        ) : (
+          <div className="row justify-content-center mt-5">
+            {charts.map((chart, index) => (
+              <div 
+                key={chart.id}
+                className={`col-md-${charts.length === 1 ? '12' : '6'} mb-4`}
+                draggable
+                onDragStart={(e) => handleDragStart(e, chart.id)}
+                onDragEnd={handleDragEnd}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, chart.id)}
+                style={{
+                  cursor: 'grab',
+                  transition: 'transform 0.2s ease-in-out',
+                  opacity: draggedChart === chart.id ? 0.5 : 1
+                }}
+              >
+                <div 
+                  className="chart-container position-relative border rounded-3 p-3 bg-dark"
+                  style={{ minHeight: '300px' }}
+                >
+                  <button
+                    className="btn btn-danger btn-sm position-absolute"
+                    style={{ top: '10px', right: '10px', zIndex: 10 }}
+                    onClick={() => removeChart(chart.id)}
+                    title="Удалить график"
+                  >
+                    <i className="bi bi-x-lg"></i>
+                  </button>
+                  
+                  <div 
+                    className="position-absolute"
+                    style={{ top: '10px', left: '10px', zIndex: 10 }}
+                  >
+                    <i className="bi bi-grip-horizontal text-white"></i>
+                  </div>
+                  
+                  {/* Передаем тип графика в компонент Chart */}
+                  <Chart 
+                    data={chart.data} 
+                    type={chart.type}
+                    colors={{
+                      backgroundColor: '#2a2a2a',
+                      textColor: 'white',
+                      lineColor: chart.type === 'linear' ? '#2962FF' : '#FF6B6B'
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}

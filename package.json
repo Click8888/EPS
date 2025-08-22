@@ -2,6 +2,8 @@
   "dependencies": {
     "bootstrap": "^5.3.7",
     "bootstrap-icons": "^1.13.1",
-    "lightweight-charts": "^5.0.8"
+    "lightweight-charts": "^5.0.8",
+    "react-bootstrap": "^2.10.10",
+    "react-grid-layout": "^1.5.2"
   }
 }
