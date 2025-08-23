@@ -4,7 +4,8 @@ import (
 	"net/http"
 	"EPS/database"
 	"EPS/models"
-
+	"fmt"
+	"strings"
 	"github.com/gin-gonic/gin"
 )
 
@@ -38,9 +39,70 @@ func GetDatabases(c *gin.Context) {
 			Measurement_time:   db.Measurement_time,
 			Current_value: 			db.Current_value,
 		})
+
+		fmt.Printf("Results: %+v\n", result)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"databases": result})
 
+}
+
+func HandleSQLQuery(c *gin.Context) {
+		fmt.Println("aboba")
+    var request struct {
+        Query string `json:"Sql"`
+    }
+
+		fmt.Println("aboba")
+    if err := c.ShouldBindJSON(&request); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				
+        return
+    }
+
+		fmt.Println("aboba")
+    // Проверяем, что запрос не пустой
+    if request.Query == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "SQL query is required"})
+        return
+    }
+
+    // Ограничиваем только SELECT запросы для безопасности
+    trimmedQuery := strings.TrimSpace(request.Query)
+    if !strings.HasPrefix(strings.ToUpper(trimmedQuery), "SELECT") {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Only SELECT queries are allowed"})
+        return
+    }
+
+    // Выполняем SQL запрос
+    var databases []models.Current_measurements
+    err := database.DB.Raw(request.Query).Scan(&databases).Error
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to execute query: " + err.Error()})
+        return
+    }
+
+    // ВЫВОД ДЛЯ ОТЛАДКИ - посмотрим что возвращается
+    fmt.Printf("SQL Query executed successfully. Returned %d rows\n", len(databases))
+    if len(databases) > 0 {
+        fmt.Printf("First row: %+v\n", databases[0])
+    }
+
+    // Возвращаем результаты
+    var result []models.Current_measurements
+		for _, db := range databases {
+			// var creator models.User
+			// database.DB.First(&creator, db.ID_creator)
+
+			result = append(result, models.Current_measurements{
+				ID:        					db.ID,
+				Measurement_time:   db.Measurement_time,
+				Current_value: 			db.Current_value,
+			})
+
+			fmt.Printf("Results: %+v\n", result)
+		}
+
+		c.JSON(http.StatusOK, gin.H{"databases": result})
 }
 

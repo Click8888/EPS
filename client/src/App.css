@@ -1,9 +1,21 @@
 /* Основное содержимое */
-.erd-container {
+.erd-container,
+.charts-area-container {
   height: 100vh;
+  overflow-y: auto;
+}
+
+.erd-container {
   width: 100vw;
 }
 
+.charts-area-container {
+  padding: 0 15px;
+  margin-bottom: 60px;
+  transition: margin-bottom 0.3s ease;
+}
+
+/* Навигация */
 .nav-link {
   color: rgba(255, 255, 255, 0.9);
   padding: 12px 20px;
@@ -25,23 +37,16 @@
   font-size: 1.1rem;
 }
 
-/* Контейнер области графиков */
-.charts-area-container {
-  overflow-y: auto;
-  padding: 0 15px;
-}
-
-/* Основной контейнер графиков */
+/* Контейнеры графиков */
 .charts-main-container {
   border: 2px solid #555;
   border-radius: 12px;
   background: #3a3a3a;
-  min-height: calc(100vh - 180px); /* Высота экрана минус навбар и панель */
+  min-height: calc(100vh - 180px);
   padding: 20px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-/* Состояние когда нет графиков */
 .charts-empty-state {
   display: flex;
   align-items: center;
@@ -50,7 +55,6 @@
   color: #888;
 }
 
-/* Сетка графиков */
 .charts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
@@ -58,21 +62,29 @@
   padding: 10px;
 }
 
-/* Отдельный элемент графика */
+/* Элементы графиков */
 .chart-item {
   cursor: grab;
-  transition: all 0.3s ease;
-}
-
-.chart-item:active {
-  cursor: grabbing;
+  transition: all 0.3s ease, border-color 0.2s ease;
+  border: 2px solid transparent;
+  border-radius: 8px;
 }
 
 .chart-item:hover {
   transform: translateY(-2px);
+  border-color: #444;
 }
 
-/* Обертка графика */
+.chart-item:active,
+.draggable-handle:active {
+  cursor: grabbing;
+}
+
+.chart-item.drag-over {
+  border-color: #2962FF !important;
+  background-color: rgba(41, 98, 255, 0.1);
+}
+
 .chart-wrapper {
   border: 1px solid #666;
   border-radius: 8px;
@@ -88,14 +100,20 @@
   border-color: #888;
 }
 
-/* Заголовок графика */
-.chart-header {
+/* Заголовок и подвал графика */
+.chart-header,
+.chart-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
+  padding: 10px 0;
   border-bottom: 1px solid #444;
+}
+
+.chart-footer {
+  margin-top: 10px;
+  border-top: 1px solid #444;
+  border-bottom: none;
 }
 
 .chart-title {
@@ -111,13 +129,11 @@
   min-height: 300px;
   width: 100%;
   position: relative;
+  pointer-events: none;
 }
 
-/* Подвал графика */
-.chart-footer {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #444;
+.chart-content > * {
+  pointer-events: auto;
 }
 
 /* Нижняя панель */
@@ -132,15 +148,410 @@
   border-radius: 50px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
   z-index: 1000;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
 }
 
-.add-chart-btn {
+.add-chart-btn,
+.sql-btn {
   border-radius: 25px;
   padding: 10px 25px;
   font-weight: 500;
+  min-width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.sql-btn {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.sql-btn:hover {
+  background-color: #0b5ed7;
+  border-color: #0a58ca;
+}
+
+.sql-btn.btn-warning {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #000;
+}
+
+.sql-btn.btn-warning:hover {
+  background-color: #ffca2c;
+  border-color: #ffc720;
+}
+
+/* SQL панель в стиле Grafana - ПЕРЕРАБОТАНА */
+.sql-panel-grafana {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1e1e1e;
+  border-top: 1px solid #444;
+  z-index: 1010;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  min-height: 300px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+  resize: vertical;
+  overflow: hidden;
+}
+
+/* Хендл для изменения размера */
+.sql-panel-resize-handle {
+  height: 12px;
+  background: #2c2c2c;
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #444;
+  position: relative;
+  transition: background-color 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sql-panel-resize-handle:hover {
+  background: #3a3a3a;
+}
+
+.sql-panel-resize-handle::before {
+  content: '';
+  width: 40px;
+  height: 4px;
+  background: #666;
+  border-radius: 2px;
+  transition: background-color 0.2s ease;
+}
+
+.sql-panel-resize-handle:hover::before {
+  background: #888;
+}
+
+.sql-panel-resize-handle:active::before {
+  background: #aaa;
+}
+
+/* Заголовок SQL панели */
+.sql-panel-header-grafana {
+  background: #202226;
+  border-bottom: 1px solid #404040;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.sql-panel-title {
+  display: flex;
+  align-items: center;
+  color: #d8d9da;
+  font-weight: 500;
+  font-size: 16px;
+}
+
+/* .sql-panel-buttons {
+  display: flex;
+  left: 0;
+  align-items: center;
+  gap: 8px;
+} */
+
+/* Основной контент SQL панели */
+.sql-panel-content-grafana {
+  display: flex;
+  flex: 1;
+  min-height: 200px;
+  overflow: hidden;
+}
+
+.sql-editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid #404040;
+}
+
+.sql-editor-header {
+  background: #2c3235;
+  padding: 8px 16px;
+  border-bottom: 1px solid #404040;
+  flex-shrink: 0;
+}
+
+.sql-editor-tab {
+  color: #d8d9da;
+  padding: 4px 12px;
+  border-radius: 3px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.sql-editor-tab.active {
+  background: #404040;
+  color: #fff;
+}
+
+.sql-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 10px;
+}
+
+/* Контейнер для выбора графика */
+.chart-selector-container {
+  padding: 8px 0;
+  flex-shrink: 0;
+}
+
+.chart-selector-container .form-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #d8d9da;
+  margin-bottom: 4px;
+}
+
+.chart-selector-container .form-select {
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  color: white;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.chart-selector-container .form-select:focus {
+  border-color: #2962FF;
+  box-shadow: 0 0 0 0.2rem rgba(41, 98, 255, 0.25);
+}
+
+.chart-selector-container .form-select:disabled {
+  background-color: #333;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.sql-textarea-grafana {
+  flex: 1;
+  background: #1e1e1e;
+  border: 1px solid #404040;
+  border-radius: 4px;
+  color: #d8d9da;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 12px;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s ease;
+  min-height: 120px;
+}
+
+.sql-textarea-grafana:focus {
+  border-color: #5794f2;
+  box-shadow: 0 0 0 2px rgba(87, 148, 242, 0.2);
+}
+
+/* Сайдбар с историей */
+.sql-panel-sidebar {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #252525;
+}
+
+.sidebar-section {
+  padding: 12px;
+  border-bottom: 1px solid #404040;
+}
+
+.sidebar-section h6 {
+  color: #d8d9da;
+  font-size: 14px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.query-history-grafana {
+  flex: 1;
+  overflow-y: auto;
+  max-height: none;
+}
+
+.history-item-grafana {
+  padding: 8px;
+  margin-bottom: 6px;
+  background: #3c3c3c;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-left: 3px solid #5794f2;
+}
+
+.history-item-grafana:hover {
+  background: #4a4a4a;
+  transform: translateX(2px);
+}
+
+.history-item-grafana.history-error {
+  border-left-color: #dc3545;
+}
+
+.history-query {
+  color: #d8d9da;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.history-time {
+  font-size: 11px;
+  color: #8c8c8c;
+}
+
+/* Футер SQL панели */
+.sql-panel-footer-grafana {
+  background: #202226;
+  border-top: 1px solid #404040;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: 16px;
+}
+
+.footer-left {
+  color: #8c8c8c;
+  font-size: 12px;
+  flex: 1;
+}
+
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Индикатор загрузки и ошибки */
+.sql-panel-loading {
+  padding: 12px;
+  background: rgba(87, 148, 242, 0.1);
+  border-top: 1px solid #404040;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d8d9da;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sql-panel-error {
+  margin: 0;
+  padding: 12px;
+  background: rgba(220, 53, 69, 0.1);
+  border: none;
+  border-radius: 0;
+  border-top: 1px solid #dc3545;
+  color: #ff6b6b;
+  font-size: 14px;
+  flex-shrink: 0;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.sql-panel-error .bi {
+  font-size: 16px;
+}
+
+/* Кнопки в стиле Grafana */
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.btn-outline-secondary {
+  border-color: #404040;
+  color: #d8d9da;
+  background: transparent;
+}
+
+.btn-outline-secondary:hover {
+  background-color: #404040;
+  border-color: #5794f2;
+  color: #fff;
+}
+
+.btn-outline-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #5794f2 0%, #3274d9 100%);
+  border: none;
+  font-weight: 500;
+  min-width: 100px;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #3274d9 0%, #1c5cbf 100%);
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Анимации */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Адаптивность */
+@media (max-width: 968px) {
+  .sql-panel-content-grafana {
+    flex-direction: column;
+  }
+  
+  .sql-panel-sidebar {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid #404040;
+    max-height: 200px;
+  }
+  
+  .sql-editor-container {
+    border-right: none;
+    border-bottom: 1px solid #404040;
+  }
+}
+
 @media (max-width: 768px) {
   .charts-grid {
     grid-template-columns: 1fr;
@@ -155,47 +566,72 @@
   .charts-bottom-panel {
     bottom: 10px;
     padding: 10px 20px;
+    width: 80%;
   }
   
   .add-chart-btn {
     padding: 8px 20px;
     font-size: 14px;
   }
+  
+  .sql-panel-footer-grafana {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .footer-right {
+    align-self: stretch;
+    justify-content: flex-end;
+  }
+  
+  .sql-panel-title span {
+    display: none;
+  }
 }
 
+/* Утилиты */
 .draggable-handle {
   cursor: grab;
   user-select: none;
 }
 
-.draggable-handle:active {
-  cursor: grabbing;
+/* Стили для disabled состояния */
+.sql-textarea-grafana:disabled {
+  background-color: #2a2a2a;
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.chart-content {
-  pointer-events: none; /* Отключаем события мыши для области графика */
+/* Плавная анимация появления/скрытия */
+.sql-panel-grafana {
+  transition: transform 0.3s ease, height 0.2s ease;
 }
 
-.chart-content > * {
-  pointer-events: auto; /* Включаем события только для самого графика */
+/* Предотвращение выделения текста при изменении размера */
+.sql-panel-resize-handle {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.chart-item {
-  transition: border-color 0.2s ease;
-  border: 2px solid transparent;
-  border-radius: 8px;
+/* Скрытие скроллбаров для более чистого вида */
+.query-history-grafana::-webkit-scrollbar,
+.sql-textarea-grafana::-webkit-scrollbar {
+  width: 6px;
 }
 
-.chart-item:hover {
-  border-color: #444;
+.query-history-grafana::-webkit-scrollbar-track,
+.sql-textarea-grafana::-webkit-scrollbar-track {
+  background: #2a2a2a;
 }
 
-.chart-content {
-  pointer-events: none;
+.query-history-grafana::-webkit-scrollbar-thumb,
+.sql-textarea-grafana::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 3px;
 }
 
-/* Стиль для подсветки при перетаскивании над целевым блоком */
-.chart-item.drag-over {
-  border-color: #2962FF !important;
-  background-color: rgba(41, 98, 255, 0.1);
+.query-history-grafana::-webkit-scrollbar-thumb:hover,
+.sql-textarea-grafana::-webkit-scrollbar-thumb:hover {
+  background: #777;
 }
