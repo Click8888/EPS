@@ -69,7 +69,7 @@ const ChartsContainer = ({
                 
                 <div className="chart-footer">
                   <small className="text-muted">
-                    {(chart.data || measurements).length} точек данных • 
+                    {(measurements).length} точек данных • 
                     {chart.type === 'linear' ? ' Временной ряд' : ' Векторная диаграмма'}
                   </small>
                 </div>

@@ -197,7 +197,12 @@ export const Chart = props => {
 
     // Эффект для ОБНОВЛЕНИЯ данных через интервал
     useEffect(() => {
+    if (!seriesRef.current || !onDataUpdate) return;
+
+        console.log(seriesRef.current)
+        console.log(onDataUpdate)
     if (seriesRef.current && onDataUpdate) {
+        console.log('1')
         if (updateIntervalRef.current) {
             clearInterval(updateIntervalRef.current);
         }
@@ -235,7 +240,7 @@ export const Chart = props => {
             clearInterval(updateIntervalRef.current);
         }
     };
-}, [updateInterval, onDataUpdate]);
+}, [updateInterval]);
 
     return (
         <div

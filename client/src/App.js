@@ -30,12 +30,23 @@ function App() {
   const [showSqlPanel, setShowSqlPanel] = useState(false);
   const [retryCounts, setRetryCounts] = useState({}); // Счетчики повторных попыток для каждого графика
   const [lastUpdateTimestamps, setLastUpdateTimestamps] = useState({});
+  const updateInterval = 10
 
   
 const normalizeId = (id) => {
     if (id === null || id === undefined || id === '') return null;
     return typeof id === 'string' ? parseInt(id, 10) : id;
   };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+        charts.forEach(chart => {
+            handleChartDataUpdate(chart.id);
+        });
+    }, updateInterval);
+
+    return () => clearInterval(interval);
+}, [charts, updateInterval]);
 
   // Функция для получения только новых данных
   const fetchNewData = useCallback(async (chartId = null) => {
@@ -83,7 +94,7 @@ const normalizeId = (id) => {
       console.error("Ошибка при загрузке данных:", error);
       throw error;
     }
-  }, [lastUpdateTimestamps, charts]);
+  }, []);
 
   // Загрузка начальных данных
   useEffect(() => {
@@ -124,7 +135,7 @@ const normalizeId = (id) => {
       console.error("Ошибка при обновлении данных графика:", error);
       return [];
     }
-  }, [fetchNewData]);
+  }, []);
 
   // Обработчик SQL запросов
   const handleExecuteQuery = useCallback(async (query, chartId = null) => {

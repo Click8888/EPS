@@ -1,4 +1,23 @@
-/* Основное содержимое */
+/* Основные переменные */
+:root {
+  --bg-primary: #2a2a2a;
+  --bg-secondary: #3a3a3a;
+  --bg-dark: #1e1e1e;
+  --bg-darker: #202226;
+  --border-color: #444;
+  --border-light: #555;
+  --text-primary: #fff;
+  --text-secondary: #d8d9da;
+  --text-muted: #8c8c8c;
+  --accent-blue: #2962FF;
+  --accent-light-blue: #5794f2;
+  --success: #28a745;
+  --warning: #ffc107;
+  --danger: #dc3545;
+  --primary: #0d6efd;
+}
+
+/* Базовые стили */
 .erd-container,
 .charts-area-container {
   height: 100vh;
@@ -7,6 +26,7 @@
 
 .erd-container {
   width: 100vw;
+  background-color: var(--bg-secondary);
 }
 
 .charts-area-container {
@@ -27,9 +47,8 @@
 }
 
 .nav-link:hover {
-  background-color: #2a2a2a;
-  color: white;
-  text-decoration: none;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .nav-link i {
@@ -39,9 +58,9 @@
 
 /* Контейнеры графиков */
 .charts-main-container {
-  border: 2px solid #555;
+  border: 2px solid var(--border-light);
   border-radius: 12px;
-  background: #3a3a3a;
+  background: var(--bg-secondary);
   min-height: calc(100vh - 180px);
   padding: 20px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
@@ -52,7 +71,7 @@
   align-items: center;
   justify-content: center;
   height: 400px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .charts-grid {
@@ -70,9 +89,8 @@
   transition: all 0.2s ease;
 }
 
-/* УБРАНА АНИМАЦИЯ ПЕРЕМЕЩЕНИЯ ПРИ НАВЕДЕНИИ */
 .chart-item:hover {
-  border-color: #444;
+  border-color: var(--border-color);
 }
 
 .chart-item:active,
@@ -81,7 +99,7 @@
 }
 
 .chart-item.drag-over {
-  border: 2px dashed #2962FF !important;
+  border: 2px dashed var(--accent-blue) !important;
   background-color: rgba(41, 98, 255, 0.1);
 }
 
@@ -94,7 +112,7 @@
 .chart-wrapper {
   border: 2px solid #7c7c7c;
   border-radius: 8px;
-  background: #2a2a2a;
+  background: var(--bg-primary);
   padding: 15px;
   display: flex;
   flex-direction: column;
@@ -102,33 +120,31 @@
 }
 
 .chart-wrapper:hover {
-  border-color: #ffffff;
+  border-color: var(--text-primary);
 }
 
-/* Заголовок и подвал графика */
 .chart-header,
 .chart-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid #444;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .chart-footer {
   margin-top: 10px;
-  border-top: 1px solid #444;
+  border-top: 1px solid var(--border-color);
   border-bottom: none;
 }
 
 .chart-title {
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 500;
   display: flex;
   align-items: center;
 }
 
-/* Область содержимого графика */
 .chart-content {
   flex-grow: 1;
   min-height: 300px;
@@ -173,8 +189,8 @@
 }
 
 .sql-btn {
-  background-color: #0d6efd;
-  border-color: #0d6efd;
+  background-color: var(--primary);
+  border-color: var(--primary);
 }
 
 .sql-btn:hover {
@@ -183,8 +199,8 @@
 }
 
 .sql-btn.btn-warning {
-  background-color: #ffc107;
-  border-color: #ffc107;
+  background-color: var(--warning);
+  border-color: var(--warning);
   color: #000;
 }
 
@@ -193,45 +209,45 @@
   border-color: #ffc720;
 }
 
-/* SQL панель в стиле Grafana - ПЕРЕРАБОТАНА */
+/* SQL панель */
 .sql-panel-grafana {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: #1e1e1e;
-  border-top: 1px solid #444;
+  background: var(--bg-dark);
+  border-top: 1px solid var(--border-color);
   z-index: 1010;
   display: flex;
   flex-direction: column;
   max-height: 90vh;
   min-height: 300px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
-  resize: vertical;
-  overflow: hidden;
+  transition: height 0.2s ease;
 }
 
-/* Хендл для изменения размера */
-.sql-panel-resize-handle {
+.sql-panel-resize-handle-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 12px;
   background: #2c2c2c;
   cursor: row-resize;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid #444;
-  position: relative;
+  border-bottom: 1px solid var(--border-color);
   transition: background-color 0.2s ease;
   user-select: none;
-  -webkit-user-select: none;
+  z-index: 1020;
 }
 
-.sql-panel-resize-handle:hover {
+.sql-panel-resize-handle-top:hover {
   background: #3a3a3a;
 }
 
-.sql-panel-resize-handle::before {
-  content: '';
+.resize-handle-line {
   width: 40px;
   height: 4px;
   background: #666;
@@ -239,19 +255,18 @@
   transition: background-color 0.2s ease;
 }
 
-.sql-panel-resize-handle:hover::before {
+.sql-panel-resize-handle-top:hover .resize-handle-line {
   background: #888;
 }
 
-.sql-panel-resize-handle:active::before {
+.sql-panel-resize-handle-top:active .resize-handle-line {
   background: #aaa;
 }
 
-/* Заголовок SQL панели */
 .sql-panel-header-grafana {
-  background: #202226;
-  border-bottom: 1px solid #404040;
-  padding: 12px 16px;
+  background: var(--bg-darker);
+  border-bottom: 1px solid var(--border-color);
+  padding: 8px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -261,12 +276,29 @@
 .sql-panel-title {
   display: flex;
   align-items: center;
-  color: #d8d9da;
+  color: var(--text-secondary);
   font-weight: 500;
   font-size: 16px;
 }
 
-/* Основной контент SQL панели */
+.resize-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.resize-controls .btn {
+  padding: 2px 6px;
+  font-size: 12px;
+  border: 1px solid var(--border-light);
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.resize-controls .btn:hover {
+  opacity: 1;
+}
+
 .sql-panel-content-grafana {
   display: flex;
   flex: 1;
@@ -279,18 +311,18 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border-right: 1px solid #404040;
+  border-right: 1px solid var(--border-color);
 }
 
 .sql-editor-header {
   background: #2c3235;
   padding: 8px 16px;
-  border-bottom: 1px solid #404040;
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
 .sql-editor-tab {
-  color: #d8d9da;
+  color: var(--text-secondary);
   padding: 4px 12px;
   border-radius: 3px;
   font-size: 14px;
@@ -298,8 +330,8 @@
 }
 
 .sql-editor-tab.active {
-  background: #404040;
-  color: #fff;
+  background: var(--border-color);
+  color: var(--text-primary);
 }
 
 .sql-editor {
@@ -310,60 +342,29 @@
   padding: 10px;
 }
 
-/* Контейнер для выбора графика */
 .chart-selector-container {
   padding: 8px 0;
   flex-shrink: 0;
 }
 
-.chart-selector-container .form-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #d8d9da;
-  margin-bottom: 4px;
-}
-
 .chart-selector-container .form-select {
-  background-color: #2a2a2a;
-  border: 1px solid #444;
-  color: white;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   font-size: 12px;
   padding: 6px 12px;
 }
 
 .chart-selector-container .form-select:focus {
-  border-color: #2962FF;
+  border-color: var(--accent-blue);
   box-shadow: 0 0 0 0.2rem rgba(41, 98, 255, 0.25);
 }
 
 .chart-selector-container .form-select:disabled {
   background-color: #333;
   color: #666;
-  cursor: not-allowed;
 }
 
-.sql-textarea-grafana {
-  flex: 1;
-  background: #1e1e1e;
-  border: 1px solid #404040;
-  border-radius: 4px;
-  color: #d8d9da;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  padding: 12px;
-  resize: none;
-  outline: none;
-  transition: border-color 0.2s ease;
-  min-height: 120px;
-}
-
-.sql-textarea-grafana:focus {
-  border-color: #5794f2;
-  box-shadow: 0 0 0 2px rgba(87, 148, 242, 0.2);
-}
-
-/* Сайдбар с историей */
 .sql-panel-sidebar {
   width: 280px;
   display: flex;
@@ -374,11 +375,11 @@
 
 .sidebar-section {
   padding: 12px;
-  border-bottom: 1px solid #404040;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .sidebar-section h6 {
-  color: #d8d9da;
+  color: var(--text-secondary);
   font-size: 14px;
   margin-bottom: 8px;
   font-weight: 500;
@@ -397,7 +398,7 @@
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
-  border-left: 3px solid #5794f2;
+  border-left: 3px solid var(--accent-light-blue);
 }
 
 .history-item-grafana:hover {
@@ -406,11 +407,11 @@
 }
 
 .history-item-grafana.history-error {
-  border-left-color: #dc3545;
+  border-left-color: var(--danger);
 }
 
 .history-query {
-  color: #d8d9da;
+  color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.4;
   margin-bottom: 4px;
@@ -419,13 +420,12 @@
 
 .history-time {
   font-size: 11px;
-  color: #8c8c8c;
+  color: var(--text-muted);
 }
 
-/* Футер SQL панели */
 .sql-panel-footer-grafana {
-  background: #202226;
-  border-top: 1px solid #404040;
+  background: var(--bg-darker);
+  border-top: 1px solid var(--border-color);
   padding: 12px 16px;
   display: flex;
   align-items: center;
@@ -435,7 +435,7 @@
 }
 
 .footer-left {
-  color: #8c8c8c;
+  color: var(--text-muted);
   font-size: 12px;
   flex: 1;
 }
@@ -446,38 +446,49 @@
   gap: 8px;
 }
 
-/* Индикатор загрузки и ошибки */
+/* Индикаторы состояния */
 .sql-panel-loading {
   padding: 12px;
   background: rgba(87, 148, 242, 0.1);
-  border-top: 1px solid #404040;
+  border-top: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #d8d9da;
+  color: var(--text-secondary);
   font-size: 14px;
   flex-shrink: 0;
 }
 
 .sql-panel-error {
+  position: relative;
+  padding: 12px 3rem 12px 12px;
   margin: 0;
-  padding: 12px;
   background: rgba(220, 53, 69, 0.1);
   border: none;
   border-radius: 0;
-  border-top: 1px solid #dc3545;
+  border-top: 1px solid var(--danger);
   color: #ff6b6b;
   font-size: 14px;
   flex-shrink: 0;
   max-height: 100px;
   overflow-y: auto;
+  transition: opacity 0.3s ease;
 }
 
-.sql-panel-error .bi {
-  font-size: 16px;
+.sql-panel-error .btn-close {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.5rem;
+  filter: invert(1) grayscale(100%) brightness(200%);
 }
 
-/* Кнопки в стиле Grafana */
+.sql-panel-error .btn-close:hover {
+  opacity: 0.8;
+}
+
+/* Кнопки */
 .btn-sm {
   padding: 6px 12px;
   font-size: 13px;
@@ -486,24 +497,19 @@
 }
 
 .btn-outline-secondary {
-  border-color: #404040;
-  color: #d8d9da;
+  border-color: var(--border-color);
+  color: var(--text-secondary);
   background: transparent;
 }
 
 .btn-outline-secondary:hover {
-  background-color: #404040;
-  border-color: #5794f2;
-  color: #fff;
-}
-
-.btn-outline-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  background-color: var(--border-color);
+  border-color: var(--accent-light-blue);
+  color: var(--text-primary);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #5794f2 0%, #3274d9 100%);
+  background: linear-gradient(135deg, var(--accent-light-blue) 0%, #3274d9 100%);
   border: none;
   font-weight: 500;
   min-width: 100px;
@@ -514,10 +520,67 @@
   transform: translateY(-1px);
 }
 
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
+/* Модальное окно */
+.modal-content {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--border-color);
+  padding: 16px;
+}
+
+.modal-footer {
+  border-top: 1px solid var(--border-color);
+  padding: 16px;
+}
+
+.modal-title {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.form-control {
+  background-color: #2a2a2a;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.form-control:focus {
+  border-color: var(--accent-light-blue);
+  box-shadow: 0 0 0 0.2rem rgba(87, 148, 242, 0.25);
+}
+
+/* Элементы запросов */
+.query-item {
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.query-item .btn-group {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.query-item:hover .btn-group {
+  opacity: 1;
+}
+
+.query-item .btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* Утилиты */
+.draggable-handle {
+  cursor: grab;
+  user-select: none;
 }
 
 /* Анимации */
@@ -532,6 +595,57 @@
   }
 }
 
+.alert-dismissible {
+  transition: all 0.3s ease;
+}
+
+.modal.fade.show {
+  backdrop-filter: blur(2px);
+}
+
+/* Состояния */
+body.resizing {
+  cursor: ns-resize !important;
+  user-select: none !important;
+}
+
+body.resizing * {
+  pointer-events: none !important;
+}
+
+.sql-panel-grafana.collapsed {
+  height: 60px !important;
+}
+
+.sql-panel-grafana.collapsed .sql-panel-content-grafana,
+.sql-panel-grafana.collapsed .sql-panel-footer-grafana,
+.sql-panel-grafana.collapsed .sql-panel-loading,
+.sql-panel-grafana.collapsed .sql-panel-error {
+  display: none;
+}
+
+/* Скрытие скроллбаров */
+.query-history-grafana::-webkit-scrollbar,
+.sql-editor::-webkit-scrollbar {
+  width: 6px;
+}
+
+.query-history-grafana::-webkit-scrollbar-track,
+.sql-editor::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+.query-history-grafana::-webkit-scrollbar-thumb,
+.sql-editor::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 3px;
+}
+
+.query-history-grafana::-webkit-scrollbar-thumb:hover,
+.sql-editor::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
 /* Адаптивность */
 @media (max-width: 968px) {
   .sql-panel-content-grafana {
@@ -541,13 +655,13 @@
   .sql-panel-sidebar {
     width: 100%;
     border-left: none;
-    border-top: 1px solid #404040;
+    border-top: 1px solid var(--border-color);
     max-height: 200px;
   }
   
   .sql-editor-container {
     border-right: none;
-    border-bottom: 1px solid #404040;
+    border-bottom: 1px solid var(--border-color);
   }
 }
 
@@ -564,10 +678,6 @@
   
   .chart-wrapper {
     height: 350px;
-  }
-  
-  .chart-content {
-    min-height: 250px;
   }
   
   .charts-bottom-panel {
@@ -587,9 +697,9 @@
     align-items: stretch;
   }
   
-  .footer-right {
-    align-self: stretch;
-    justify-content: flex-end;
+  .resize-controls,
+  .sql-panel-footer-grafana .text-muted {
+    display: none;
   }
   
   .sql-panel-title span {
@@ -597,102 +707,10 @@
   }
 }
 
-/* Утилиты */
-.draggable-handle {
-  cursor: grab;
-  user-select: none;
-}
-
-/* Стили для disabled состояния */
-.sql-textarea-grafana:disabled {
-  background-color: #2a2a2a;
+/* Отключенные состояния */
+.sql-textarea-grafana:disabled,
+.chart-selector-container .form-select:disabled,
+.btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-/* Плавная анимация появления/скрытия */
-.sql-panel-grafana {
-  transition: transform 0.3s ease, height 0.2s ease;
-}
-
-/* Предотвращение выделения текста при изменении размера */
-.sql-panel-resize-handle {
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-/* Скрытие скроллбаров для более чистого вида */
-.query-history-grafana::-webkit-scrollbar,
-.sql-textarea-grafana::-webkit-scrollbar {
-  width: 6px;
-}
-
-.query-history-grafana::-webkit-scrollbar-track,
-.sql-textarea-grafana::-webkit-scrollbar-track {
-  background: #2a2a2a;
-}
-
-.query-history-grafana::-webkit-scrollbar-thumb,
-.sql-textarea-grafana::-webkit-scrollbar-thumb {
-  background: #555;
-  border-radius: 3px;
-}
-
-.query-history-grafana::-webkit-scrollbar-thumb:hover,
-.sql-textarea-grafana::-webkit-scrollbar-thumb:hover {
-  background: #777;
-}
-
-/* В App.css */
-.chart-container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-
-.chart-status {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
-    z-index: 10;
-}
-
-.status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-}
-
-.status-connected .status-dot {
-    background-color: #28a745;
-}
-
-.status-disconnected .status-dot {
-    background-color: #ffc107;
-}
-
-.status-error .status-dot {
-    background-color: #dc3545;
-}
-
-.status-connected {
-    background-color: rgba(40, 167, 69, 0.1);
-    color: #28a745;
-}
-
-.status-disconnected {
-    background-color: rgba(255, 193, 7, 0.1);
-    color: #ffc107;
-}
-
-.status-error {
-    background-color: rgba(220, 53, 69, 0.1);
-    color: #dc3545;
 }
