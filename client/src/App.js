@@ -10,6 +10,8 @@ import ChartTypeModal from './components/ChartTypeModal';
 // Константы
 const MAX_CHARTS = 6;
 const API_BASE_URL = 'http://localhost:8080/api';
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000; // 2 секунды между попытками
 
 function transformData(inputJson) {
   return inputJson.map(item => ({
@@ -26,85 +28,159 @@ function App() {
   const [showModal, setShowModal] = useState(false);
   const [selectedChartType, setSelectedChartType] = useState('linear');
   const [showSqlPanel, setShowSqlPanel] = useState(false);
+  const [retryCounts, setRetryCounts] = useState({}); // Счетчики повторных попыток для каждого графика
+  const [lastUpdateTimestamps, setLastUpdateTimestamps] = useState({});
 
-  // Добавьте эту функцию в начало App.js
+  
 const normalizeId = (id) => {
-  if (id === null || id === undefined || id === '') return null;
-  return typeof id === 'string' ? parseInt(id, 10) : id;
-};
+    if (id === null || id === undefined || id === '') return null;
+    return typeof id === 'string' ? parseInt(id, 10) : id;
+  };
 
-  // Загрузка данных
+  // Функция для получения только новых данных
+  const fetchNewData = useCallback(async (chartId = null) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/getparams`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const allData = transformData(data.databases);
+      
+      // Если есть lastUpdateTime для этого графика, фильтруем новые данные
+      const normalizedChartId = normalizeId(chartId);
+      const lastTimestamp = normalizedChartId ? lastUpdateTimestamps[normalizedChartId] : null;
+      
+      let newData;
+      if (lastTimestamp) {
+        newData = allData.filter(item => item.timestamp > lastTimestamp);
+      } else {
+        newData = allData;
+      }
+      
+      // Обновляем временную метку для следующего запроса
+      if (newData.length > 0) {
+        const latestTimestamp = Math.max(...newData.map(item => item.timestamp));
+        
+        if (normalizedChartId) {
+          setLastUpdateTimestamps(prev => ({
+            ...prev,
+            [normalizedChartId]: latestTimestamp
+          }));
+        } else {
+          // Для общего обновления обновляем все временные метки
+          const newTimestamps = {};
+          charts.forEach(chart => {
+            newTimestamps[chart.id] = latestTimestamp;
+          });
+          setLastUpdateTimestamps(prev => ({ ...prev, ...newTimestamps }));
+        }
+      }
+      
+      return newData;
+    } catch (error) {
+      console.error("Ошибка при загрузке данных:", error);
+      throw error;
+    }
+  }, [lastUpdateTimestamps, charts]);
+
+  // Загрузка начальных данных
   useEffect(() => {
-    const fetchData = async () => {
+    const loadInitialData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/getparams`);
-        const data = await response.json();
-        const transformedData = transformData(data.databases);
-        setMeasurements(transformedData);
+        const data = await fetchNewData();
+        setMeasurements(data);
       } catch (error) {
-        console.error("Ошибка загрузки:", error);
-        alert("Ошибка при загрузке данных");
+        console.error("Ошибка при загрузке начальных данных:", error);
       }
     };
 
-    fetchData();
+    loadInitialData();
   }, []);
+
+  // Callback для обновления данных графика
+  const handleChartDataUpdate = useCallback(async (chartId = null) => {
+    try {
+      const newData = await fetchNewData(chartId);
+      
+      if (chartId) {
+        const normalizedChartId = normalizeId(chartId);
+        setCharts(prev => prev.map(chart => 
+          chart.id === normalizedChartId 
+            ? { ...chart, data: [...chart.data, ...newData] }
+            : chart
+        ));
+        return newData;
+      } else {
+        setMeasurements(prev => [...prev, ...newData]);
+        setCharts(prev => prev.map(chart => ({
+          ...chart,
+          data: [...chart.data, ...newData]
+        })));
+        return newData;
+      }
+    } catch (error) {
+      console.error("Ошибка при обновлении данных графика:", error);
+      return [];
+    }
+  }, [fetchNewData]);
 
   // Обработчик SQL запросов
   const handleExecuteQuery = useCallback(async (query, chartId = null) => {
-  console.log("Выполняем SQL запрос:", query, "для графика:", chartId);
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}/execute-query`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ Sql: query })
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/execute-query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Sql: query })
+      });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-    const data = await response.json();
-    
-    if (data.databases) {
-      const transformedData = transformData(data.databases);
-      
-      // Нормализуем ID для сравнения
-      const normalizedChartId = normalizeId(chartId);
-      
-      if (normalizedChartId) {
-        // Обновляем данные только для выбранного графика
-        setCharts(prev => prev.map(chart => 
-          chart.id === normalizedChartId 
-            ? { ...chart, data: transformedData }
-            : chart
-        ));
-        const chartIndex = charts.findIndex(c => c.id === normalizedChartId);
-        alert(`Запрос выполнен успешно! Обновлен график #${chartIndex + 1}`);
-      } else {
-        // Обновляем данные для всех графиков
-        setMeasurements(transformedData);
-        setCharts(prev => prev.map(chart => ({
-          ...chart,
-          data: transformedData
-        })));
-        alert(`Запрос выполнен успешно! Обновлены все графики (${transformedData.length} записей)`);
+      const data = await response.json();
+      if (data.databases) {
+        const transformedData = transformData(data.databases);
+        const normalizedChartId = normalizeId(chartId);
+        
+        if (normalizedChartId) {
+          setCharts(prev => prev.map(chart => 
+            chart.id === normalizedChartId 
+              ? { ...chart, data: transformedData }
+              : chart
+          ));
+          // Сбрасываем временную метку после SQL запроса
+          setLastUpdateTimestamps(prev => ({
+            ...prev,
+            [normalizedChartId]: null
+          }));
+        } else {
+          setMeasurements(transformedData);
+          setCharts(prev => prev.map(chart => ({
+            ...chart,
+            data: transformedData
+          })));
+          // Сбрасываем все временные метки
+          setLastUpdateTimestamps({});
+        }
       }
-    } else {
-      alert('Запрос выполнен, но данные не получены в ожидаемом формате');
+    } catch (error) {
+      console.error("Ошибка при выполнении запроса:", error);
+      throw error;
     }
+  }, []);
 
-  } catch (error) {
-    console.error("Ошибка при выполнении запроса:", error);
-    alert(`Ошибка выполнения запроса: ${error.message}`);
-    throw error;
-  }
-}, [charts]);
+  // Добавление нового графика
+  const addChartWithType = useCallback(() => {
+    const newChart = {
+      id: Date.now(),
+      data: [...measurements],
+      type: selectedChartType,
+      orderIndex: charts.length + 1
+    };
+    setCharts(prev => [...prev, newChart]);
+    setShowModal(false);
+  }, [measurements, selectedChartType, charts.length]);
 
-  // Управление графиками
   const openModal = useCallback(() => {
     if (charts.length >= MAX_CHARTS) {
       console.log("Достигнуто максимальное количество графиков!");
@@ -115,47 +191,33 @@ const normalizeId = (id) => {
     }
   }, [charts.length, measurements.length]);
 
-  const addChartWithType = useCallback(() => {
-    const newChart = {
-      id: Date.now(),
-      data: [...measurements],
-      type: selectedChartType
-    };
-    setCharts(prev => [...prev, newChart]);
-    setShowModal(false);
-  }, [measurements, selectedChartType]);
-
   const closeModal = useCallback(() => {
     setShowModal(false);
   }, []);
 
   const removeChart = useCallback((chartId) => {
-  const normalizedId = normalizeId(chartId);
-  setCharts(prev => prev.filter(chart => chart.id !== normalizedId));
-  if (normalizeId(selectedChartId) === normalizedId) {
-    setSelectedChartId(null);
-  }
-}, [selectedChartId]);
+    const normalizedId = normalizeId(chartId);
+    setCharts(prev => {
+      const filteredCharts = prev.filter(chart => chart.id !== normalizedId);
+      // Обновляем порядковые номера после удаления
+      return filteredCharts.map((chart, index) => ({
+        ...chart,
+        orderIndex: index + 1
+      }));
+    });
+    if (normalizeId(selectedChartId) === normalizedId) {
+      setSelectedChartId(null);
+    }
+  }, [selectedChartId]);
 
   // Drag & Drop функции
   const handleDragStart = useCallback((e, chartId) => {
-    if (!e.target.classList.contains('draggable-handle') && 
-        !e.target.closest('.draggable-handle')) {
-      e.preventDefault();
-      return;
-    }
-    
     e.dataTransfer.setData('text/plain', chartId.toString());
-    setDraggedChart(chartId);
-    e.target.style.opacity = '0.5';
+    e.target.classList.add('dragging');
   }, []);
 
   const handleDragEnd = useCallback((e) => {
-    if (e.target.classList.contains('draggable-handle') || 
-        e.target.closest('.draggable-handle')) {
-      e.target.style.opacity = '1';
-      setDraggedChart(null);
-    }
+    e.target.classList.remove('dragging');
   }, []);
 
   const handleDragOver = useCallback((e) => {
@@ -164,26 +226,32 @@ const normalizeId = (id) => {
   }, []);
 
   const handleDrop = useCallback((e, targetChartId) => {
-  e.preventDefault();
-  const draggedChartId = e.dataTransfer.getData('text/plain');
-  const normalizedDraggedId = normalizeId(draggedChartId);
-  const normalizedTargetId = normalizeId(targetChartId);
-  
-  if (normalizedDraggedId && normalizedDraggedId !== normalizedTargetId) {
-    setCharts(prev => {
-      const newCharts = [...prev];
-      const draggedIndex = newCharts.findIndex(chart => chart.id === normalizedDraggedId);
-      const targetIndex = newCharts.findIndex(chart => chart.id === normalizedTargetId);
-      
-      if (draggedIndex !== -1 && targetIndex !== -1) {
-        [newCharts[draggedIndex], newCharts[targetIndex]] = 
-        [newCharts[targetIndex], newCharts[draggedIndex]];
-      }
-      
-      return newCharts;
-    });
-  }
-}, []);
+    e.preventDefault();
+    const draggedChartId = e.dataTransfer.getData('text/plain');
+    const normalizedDraggedId = normalizeId(draggedChartId);
+    const normalizedTargetId = normalizeId(targetChartId);
+    
+    if (normalizedDraggedId && normalizedDraggedId !== normalizedTargetId) {
+      setCharts(prev => {
+        const newCharts = [...prev];
+        const draggedIndex = newCharts.findIndex(chart => chart.id === normalizedDraggedId);
+        const targetIndex = newCharts.findIndex(chart => chart.id === normalizedTargetId);
+        
+        if (draggedIndex !== -1 && targetIndex !== -1) {
+          // Меняем местами элементы
+          [newCharts[draggedIndex], newCharts[targetIndex]] = 
+          [newCharts[targetIndex], newCharts[draggedIndex]];
+          
+          // Обновляем порядковые номера после перестановки
+          newCharts.forEach((chart, index) => {
+            chart.orderIndex = index + 1;
+          });
+        }
+        
+        return newCharts;
+      });
+    }
+  }, []);
 
   return (
     <div className='erd-container d-flex flex-column vh-100' style={{  
@@ -209,6 +277,7 @@ const normalizeId = (id) => {
           draggedChart={draggedChart}
           onRemoveChart={removeChart}
           measurements={measurements}
+          onDataUpdate={handleChartDataUpdate} 
         />
       </div>
 

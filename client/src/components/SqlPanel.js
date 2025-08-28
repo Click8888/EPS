@@ -219,7 +219,6 @@ const SqlPanel = ({ show, onClose, onExecuteQuery, charts, selectedChartId, onSe
                     <div className="history-time text-muted small">
                       {item.timestamp}
                       
-                      {/* ИСПРАВЛЕННАЯ ЧАСТЬ - правильное отображение информации о графике */}
                       {item.chartId && item.chartId !== 'all' ? (
                         <div className="text-info small">
                           Chart: {charts.findIndex(c => c.id === item.chartId) + 1}

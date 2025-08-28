@@ -12,33 +12,93 @@ export const Chart = props => {
             areaTopColor = '#2962FF',
             areaBottomColor = 'rgba(41, 98, 255, 0.28)',
         } = {},
+        updateInterval = 1000, // Увеличим интервал для стабильности
+        onDataUpdate
     } = props;
 
     const chartContainerRef = useRef();
-    const [chart, setChart] = useState(null);
-    const [series, setSeries] = useState(null);
+    const chartRef = useRef(null);
+    const seriesRef = useRef(null);
     const [resizeObserver, setResizeObserver] = useState(null);
+    const updateIntervalRef = useRef(null);
+    const isUserInteractingRef = useRef(false);
+    const interactionTimeoutRef = useRef(null);
 
-    // Функция для преобразования времени HH:MM:SS в секунды с начала дня
+    // Функция для преобразования времени HH:MM:SS.mmm в секунды с миллисекундами
     const timeToSeconds = (timeString) => {
         if (!timeString) return 0;
         
-        const [hours, minutes, seconds] = timeString.split(':').map(Number);
-        return hours * 3600 + minutes * 60 + seconds;
+        // Разделяем время и миллисекунды
+        const [timePart, millisecondsPart] = timeString.split('.');
+        const [hours, minutes, seconds] = timePart.split(':').map(Number);
+        const milliseconds = millisecondsPart ? parseInt(millisecondsPart) : 0;
+        
+        return hours * 3600 + minutes * 60 + seconds + (milliseconds / 1000);
     };
 
-    // Функция для форматирования секунд обратно в HH:MM:SS
+    // Функция для форматирования секунд обратно в HH:MM:SS.mmm
     const secondsToTime = (totalSeconds) => {
         const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
+        const remainingAfterHours = totalSeconds % 3600;
+        const minutes = Math.floor(remainingAfterHours / 60);
+        const remainingAfterMinutes = remainingAfterHours % 60;
+        const seconds = Math.floor(remainingAfterMinutes);
+        const milliseconds = Math.round((remainingAfterMinutes - seconds) * 1000);
         
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
     };
 
-    // Эффект для создания графика и обработки ресайза
+    // Функция для обработки и валидации данных
+    const processChartData = (rawData) => {
+        if (!rawData || rawData.length === 0) return [];
+
+        // Удаляем дубликаты и сортируем по времени
+        const uniqueDataMap = new Map();
+        
+        rawData.forEach(item => {
+            const timeInSeconds = timeToSeconds(item.time);
+            uniqueDataMap.set(timeInSeconds, {
+                time: timeInSeconds,
+                value: item.value
+            });
+        });
+
+        const uniqueData = Array.from(uniqueDataMap.values());
+        uniqueData.sort((a, b) => a.time - b.time);
+
+        return uniqueData;
+    };
+
+    // Обработчики взаимодействия пользователя
+    const handleUserInteractionStart = () => {
+        isUserInteractingRef.current = true;
+        if (interactionTimeoutRef.current) {
+            clearTimeout(interactionTimeoutRef.current);
+        }
+    };
+
+    const handleUserInteractionEnd = () => {
+        if (interactionTimeoutRef.current) {
+            clearTimeout(interactionTimeoutRef.current);
+        }
+        
+        interactionTimeoutRef.current = setTimeout(() => {
+            isUserInteractingRef.current = false;
+        }, 1500);
+    };
+
+    // Эффект для создания графика
     useEffect(() => {
         if (!chartContainerRef.current) return;
+
+        const handleResize = () => {
+            if (chartRef.current && chartContainerRef.current) {
+                chartRef.current.applyOptions({ 
+                    width: chartContainerRef.current.clientWidth,
+                    height: chartContainerRef.current.clientHeight
+                });
+            }
+        };
 
         const chart = createChart(chartContainerRef.current, {
             layout: {
@@ -51,7 +111,6 @@ export const Chart = props => {
                 timeVisible: true,
                 secondsVisible: true,
                 tickMarkFormatter: (time) => {
-                    // Преобразуем время в секундах обратно в формат HH:MM:SS
                     return secondsToTime(time);
                 }
             },
@@ -60,6 +119,15 @@ export const Chart = props => {
                 horzLines: { color: '#444' },
             },
             autoSize: true,
+            handleScroll: {
+                mouseWheel: true,
+                pressedMouseMove: true,
+            },
+            handleScale: {
+                axisPressedMouseMove: true,
+                mouseWheel: true,
+                pinch: true,
+            },
         });
 
         const newSeries = chart.addSeries(AreaSeries, { 
@@ -68,18 +136,18 @@ export const Chart = props => {
             bottomColor: areaBottomColor 
         });
 
-        setChart(chart);
-        setSeries(newSeries);
+        // Подписываемся на события взаимодействия
+        chart.timeScale().subscribeVisibleLogicalRangeChange(handleUserInteractionStart);
+        chart.timeScale().subscribeVisibleTimeRangeChange(handleUserInteractionStart);
 
-        // Создаем ResizeObserver
+        chartRef.current = chart;
+        seriesRef.current = newSeries;
+
+        // ResizeObserver
         const observer = new ResizeObserver(entries => {
             for (let entry of entries) {
                 if (entry.target === chartContainerRef.current) {
-                    chart.applyOptions({
-                        width: entry.contentRect.width,
-                        height: entry.contentRect.height
-                    });
-                    chart.timeScale().fitContent();
+                    handleResize();
                 }
             }
         });
@@ -87,51 +155,87 @@ export const Chart = props => {
         observer.observe(chartContainerRef.current);
         setResizeObserver(observer);
 
+        // Обработчики мыши
+        const handleMouseDown = () => handleUserInteractionStart();
+        const handleMouseUp = () => handleUserInteractionEnd();
+
+        chartContainerRef.current.addEventListener('mousedown', handleMouseDown);
+        chartContainerRef.current.addEventListener('mouseup', handleMouseUp);
+
         return () => {
-            if (observer) {
-                observer.disconnect();
+            observer.disconnect();
+            
+            if (chartContainerRef.current) {
+                chartContainerRef.current.removeEventListener('mousedown', handleMouseDown);
+                chartContainerRef.current.removeEventListener('mouseup', handleMouseUp);
             }
+            
+            if (interactionTimeoutRef.current) {
+                clearTimeout(interactionTimeoutRef.current);
+            }
+            
             chart.remove();
         };
     }, [backgroundColor, textColor, lineColor, areaTopColor, areaBottomColor]);
 
-    // Эффект для обновления данных
+    // Эффект для ОТОБРАЖЕНИЯ данных (не обновления)
     useEffect(() => {
-        if (series && data && data.length > 0) {
-            // Преобразуем время HH:MM:SS в секунды для библиотеки и сортируем по времени
-            const formattedData = data
-                .map(item => ({
-                    time: timeToSeconds(item.time), // Преобразуем HH:MM:SS в секунды
-                    value: item.value
-                }))
-                .sort((a, b) => a.time - b.time); // Сортируем по времени в порядке возрастания
+        if (seriesRef.current && data && data.length > 0) {
+            console.log('Setting initial data:', data.length, 'points');
+            const processedData = processChartData(data);
+            console.log('Processed data:', processedData.length, 'points');
             
-            series.setData(formattedData);
-            
-            if (chart) {
-                chart.timeScale().fitContent();
+            if (processedData.length > 0) {
+                seriesRef.current.setData(processedData);
+                
+                if (chartRef.current) {
+                    chartRef.current.timeScale().fitContent();
+                }
             }
         }
-    }, [data, series, chart]);
+    }, [data]); // Только при изменении данных
 
-    // Эффект для обработки ресайза окна
+    // Эффект для ОБНОВЛЕНИЯ данных через интервал
     useEffect(() => {
-        const handleResize = () => {
-            if (chart && chartContainerRef.current) {
-                chart.applyOptions({ 
-                    width: chartContainerRef.current.clientWidth,
-                    height: chartContainerRef.current.clientHeight
-                });
-                chart.timeScale().fitContent();
+    if (seriesRef.current && onDataUpdate) {
+        if (updateIntervalRef.current) {
+            clearInterval(updateIntervalRef.current);
+        }
+
+        updateIntervalRef.current = setInterval(async () => {
+            try {
+                if (isUserInteractingRef.current) {
+                    return;
+                }
+
+                const newData = await onDataUpdate();
+                if (newData && newData.length > 0) {
+                    // Добавляем только новые точки
+                    newData.forEach(point => {
+                        const timeInSeconds = timeToSeconds(point.time);
+                        seriesRef.current.update({
+                            time: timeInSeconds,
+                            value: point.value
+                        });
+                    });
+
+                    // Автоматическое масштабирование
+                    if (chartRef.current && !isUserInteractingRef.current) {
+                        chartRef.current.timeScale().fitContent();
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка при обновлении данных:', error);
             }
-        };
+        }, updateInterval);
+    }
 
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, [chart]);
+    return () => {
+        if (updateIntervalRef.current) {
+            clearInterval(updateIntervalRef.current);
+        }
+    };
+}, [updateInterval, onDataUpdate]);
 
     return (
         <div

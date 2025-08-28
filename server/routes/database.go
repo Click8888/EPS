@@ -40,7 +40,7 @@ func GetDatabases(c *gin.Context) {
 			Current_value: 			db.Current_value,
 		})
 
-		fmt.Printf("Results: %+v\n", result)
+		
 	}
 
 	c.JSON(http.StatusOK, gin.H{"databases": result})
