@@ -512,7 +512,7 @@
   background: linear-gradient(135deg, var(--accent-light-blue) 0%, #3274d9 100%);
   border: none;
   font-weight: 500;
-  min-width: 100px;
+  min-width: 40px;
 }
 
 .btn-primary:hover {
@@ -603,11 +603,6 @@
   backdrop-filter: blur(2px);
 }
 
-/* Состояния */
-body.resizing {
-  cursor: ns-resize !important;
-  user-select: none !important;
-}
 
 body.resizing * {
   pointer-events: none !important;

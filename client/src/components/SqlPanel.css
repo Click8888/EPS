@@ -23,7 +23,6 @@
   position: relative;
   height: 12px;
   background: #2c2c2c;
-  cursor: row-resize;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -361,11 +360,6 @@
   background: #777;
 }
 
-/* Стиль во время изменения размера */
-body.resizing {
-  cursor: ns-resize !important;
-  user-select: none !important;
-}
 
 /* Дополнительные стили для элементов внутри SqlPanel */
 .query-item {

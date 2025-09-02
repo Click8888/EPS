@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Chart from './Chart';
 
 const ChartsContainer = ({ 
@@ -10,8 +10,40 @@ const ChartsContainer = ({
   draggedChart, 
   onRemoveChart,
   measurements,
-  onDataUpdate
+  onUpdateToggle,
+  updatingCharts,
+  onChartTitleChange,
+  setEditTitleValue,
+  editTitleValue
 }) => {
+  const [editingChartId, setEditingChartId] = useState(null);
+
+  const handleTitleEditStart = (chart) => {
+    setEditingChartId(chart.id);
+    setEditTitleValue(chart.title || `График #${charts.findIndex(c => c.id === chart.id) + 1}`);
+  };
+  
+  const handleTitleEditSave = (chartId) => {
+    if (editTitleValue.trim()) {
+      onChartTitleChange(chartId, editTitleValue.trim());
+    }
+    setEditingChartId(null);
+    setEditTitleValue('');
+  };
+
+  const handleTitleEditCancel = () => {
+    setEditingChartId(null);
+    setEditTitleValue('');
+  };
+
+  const handleKeyPress = (e, chartId) => {
+    if (e.key === 'Enter') {
+      handleTitleEditSave(chartId);
+    } else if (e.key === 'Escape') {
+      handleTitleEditCancel();
+    }
+  };
+
   return (
     <div className="charts-main-container">
       {charts.length === 0 ? (
@@ -19,63 +51,134 @@ const ChartsContainer = ({
           <div className="text-center text-white">
             <i className="bi bi-bar-chart-fill display-4 mb-3"></i>
             <h4>Нет добавленных графиков</h4>
-            <p className="text-muted">Нажмите на кнопку ниже, чтобы добавить первый график</p>
+            <p className="text-white">Нажмите на кнопку ниже, чтобы добавить первый график</p>
           </div>
         </div>
       ) : (
         <div className="charts-grid">
-          {charts.map((chart, index) => (
-            <div 
-              key={`chart-${chart.id}-${index}`}
-              className={`chart-item ${draggedChart === chart.id ? 'dragging' : ''}`}
-              onDragOver={onDragOver}
-              onDrop={(e) => onDrop(e, chart.id)}
-            >
-              <div className="chart-wrapper">
-                <div 
-                  className="chart-header draggable-handle"
-                  draggable
-                  onDragStart={(e) => onDragStart(e, chart.id)}
-                  onDragEnd={onDragEnd}
-                >
-                  <span className="chart-title">
-                    <i className="bi bi-grip-horizontal me-2"></i>
-                    График #{index + 1} - {chart.type === 'linear' ? 'Линейный' : 'Векторный'}
-                  </span>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => onRemoveChart(chart.id)}
-                    title="Удалить график"
+          {charts.map((chart, index) => {
+            const isUpdating = updatingCharts.has(chart.id);
+            const isEditing = editingChartId === chart.id;
+            const displayTitle = chart.title || `График #${index + 1}`;
+
+            return (
+              <div 
+                key={`chart-${chart.id}-${index}`}
+                className={`chart-item ${draggedChart === chart.id ? 'dragging' : ''}`}
+                onDragOver={onDragOver}
+                onDrop={(e) => onDrop(e, chart.id)}
+              >
+                <div className="chart-wrapper">
+                  <div 
+                    className="chart-header draggable-handle"
+                    draggable
+                    onDragStart={(e) => onDragStart(e, chart.id)}
+                    onDragEnd={onDragEnd}
                   >
-                    <i className="bi bi-x-lg"></i>
-                  </button>
-                </div>
-                
-                <div className="chart-content">
-                  <Chart 
-                    key={`chart-content-${chart.id}-${index}`}
-                    data={chart.data || measurements} // используем данные графика или общие измерения
-                    type={chart.type}
-                    onDataUpdate={() => onDataUpdate(chart.id)}
-                    colors={{
-                      backgroundColor: '#2a2a2a',
-                      textColor: 'white',
-                      lineColor: chart.type === 'linear' ? '#2962FF' : '#FF6B6B'
-                    }}
+                    {isEditing ? (
+                      <div className="d-flex align-items-center flex-grow-1 me-2">
+                        <i className="bi bi-grip-horizontal me-2"></i>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          value={editTitleValue}
+                          onChange={(e) => setEditTitleValue(e.target.value)}
+                          onKeyDown={(e) => handleKeyPress(e, chart.id)}
+                          onBlur={() => handleTitleEditSave(chart.id)}
+                          autoFocus
+                          style={{ 
+                            backgroundColor: '#3a3a3a', 
+                            color: 'white', 
+                            border: '1px solid #555',
+                            fontSize: '14px'
+                          }}
+                        />
+                        <button
+                          className="btn btn-success btn-sm ms-2"
+                          onClick={() => handleTitleEditSave(chart.id)}
+                          title="Сохранить"
+                        >
+                          <i className="bi bi-check"></i>
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm ms-1"
+                          onClick={handleTitleEditCancel}
+                          title="Отменить"
+                        >
+                          <i className="bi bi-x"></i>
+                        </button>
+                      </div>
+                    ) : (
+                      <span 
+                        className="chart-title flex-grow-1"
+                        onDoubleClick={() => handleTitleEditStart(chart)}
+                        title="Двойной клик для редактирования названия"
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <i className="bi bi-grip-horizontal me-2"></i>
+                        {displayTitle} - {chart.type === 'linear' ? 'Линейный' : 'Векторный'}
+                      </span>
+                    )}
                     
-                  />
-                  {/* {console.log(chart.data)} */}
-                </div>
-                
-                <div className="chart-footer">
-                  <small className="text-muted">
-                    {(measurements).length} точек данных • 
-                    {chart.type === 'linear' ? ' Временной ряд' : ' Векторная диаграмма'}
-                  </small>
+                    <div className="chart-actions">
+                      {!isEditing && (
+                        <>
+                          <button
+                            className="btn btn-outline-secondary btn-sm me-2"
+                            onClick={() => handleTitleEditStart(chart)}
+                            title="Редактировать название"
+                          >
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                          <button
+                            className={`btn btn-sm me-2 ${isUpdating ? 'btn-warning' : 'btn-primary'}`}
+                            onClick={() => onUpdateToggle(chart.id)}
+                            title={isUpdating ? "Остановить обновление" : "Запустить обновление"}
+                          >
+                            <i className={`bi ${isUpdating ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
+                          </button>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => onRemoveChart(chart.id)}
+                            title="Удалить график"
+                          >
+                            <i className="bi bi-x-lg"></i>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="chart-content">
+                    <Chart 
+                      key={`chart-content-${chart.id}-${index}`}
+                      data={chart.data || measurements}
+                      type={chart.type}
+                      isUpdating={isUpdating}
+                      colors={{
+                        backgroundColor: '#2a2a2a',
+                        textColor: 'white',
+                        lineColor: chart.color || '#133592',
+                        areaTopColor: '#2a4a9c', // Более светлый оттенок для верха
+                        areaBottomColor: '#1a2a5c' // Более темный оттенок для низа
+                      }}
+                    />
+                    {/* Отладочная информация */}
+                    {console.log(`Chart ${chart.id} data:`, chart.data || measurements)}
+                    {console.log(`Chart ${chart.id} color:`, chart.color)}
+                  </div>
+                  
+                  <div className="chart-footer">
+                    <small className="text-muted">
+                      {(chart.data || measurements).length} точек данных • 
+                      {chart.type === 'linear' ? ' Временной ряд' : ' Векторная диаграмма'}
+                      {isUpdating && <span className="text-warning ms-2">🔄 Обновляется...</span>}
+                    </small>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

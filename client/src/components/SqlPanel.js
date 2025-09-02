@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import '../App.css';
 
 // Helper function
@@ -36,350 +36,302 @@ const ErrorAlert = ({ error, onClose }) => {
   );
 };
 
-// Компонент модального окна для создания/редактирования запроса
-const QueryEditorModal = ({ show, onClose, onSave, initialQuery = null }) => {
-  const [name, setName] = useState('');
-  const [query, setQuery] = useState('');
-  const [description, setDescription] = useState('');
-
-  useEffect(() => {
-    if (initialQuery) {
-      setName(initialQuery.name || '');
-      setQuery(initialQuery.query || '');
-      setDescription(initialQuery.description || '');
-    } else {
-      setName('');
-      setQuery('');
-      setDescription('');
-    }
-  }, [initialQuery, show]);
+// Компонент для настройки параметров графика
+const ChartSettings = ({ 
+  chart, 
+  charts, 
+  onExecute, 
+  onSave, 
+  onDelete, 
+  editTitleValue,
+  tableNames,
+  columnsByTable
+}) => {
+  // Получаем доступные колонки для выбранной таблицы
+  const availableColumns = chart.selectedTable ? 
+    columnsByTable[chart.selectedTable] || [] : [];
 
   const handleSave = () => {
-    if (!name.trim() || !query.trim()) {
-      alert('Название и запрос обязательны для заполнения');
+    if (!chart.name?.trim()) {
+      alert('Название графика обязательно');
       return;
     }
 
-    onSave({
-      id: initialQuery?.id || Date.now(),
-      name: name.trim(),
-      query: query.trim(),
-      description: description.trim()
-    });
-
-    onClose();
+    onSave(chart);
+    alert('Настройки сохранены!');
   };
 
-  if (!show) return null;
+  const handleTableChange = (tableName) => {
+    const updatedChart = {
+      ...chart,
+      selectedTable: tableName,
+      // Не сбрасываем оси, если они могут существовать в новой таблице
+      xAxis: chart.xAxis && columnsByTable[tableName]?.includes(chart.xAxis) ? chart.xAxis : '',
+      yAxis: chart.yAxis && columnsByTable[tableName]?.includes(chart.yAxis) ? chart.yAxis : ''
+    };
+    onSave(updatedChart);
+  };
+
+  const handleFieldChange = (field, value) => {
+    const updatedChart = {
+      ...chart,
+      [field]: value
+    };
+    onSave(updatedChart);
+  };
+
+  const generateQuery = () => {
+    if (!chart.selectedTable || !chart.xAxis || !chart.yAxis) {
+      alert('Выберите таблицу и обе оси для генерации запроса');
+      return;
+    }
+
+    return `SELECT ${chart.xAxis}, ${chart.yAxis} FROM ${chart.selectedTable}`;
+  };
+
+  const handleExecuteQuery = () => {
+    const query = generateQuery();
+    if (query) {
+      onExecute(query, chart.id);
+    }
+  };
 
   return (
-    <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="modal-dialog modal-lg">
-        <div className="modal-content bg-dark text-light">
-          <div className="modal-header border-secondary">
-            <h5 className="modal-title">
-              {initialQuery ? 'Редактировать запрос' : 'Создать новый запрос'}
-            </h5>
-            <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>
+    <div className="chart-settings-item p-3 mb-3 rounded bg-dark" style={{ border: '1px solid #444' }}>
+      <div className="d-flex justify-content-between align-items-start mb-3">
+        <input
+          type="text"
+          className="form-control form-control-sm bg-secondary text-white border-dark me-2"
+          value={chart.name || `График ${charts.findIndex(c => c.id === chart.id) + 1}`}
+          onChange={(e) => handleFieldChange('name', e.target.value)}
+          placeholder="Название графика"
+          style={{ maxWidth: '200px' }}
+        />
+        <div className="btn-group btn-group-sm">
+          <button
+            className="btn btn-outline-success"
+            onClick={handleSave}
+            title="Сохранить настройки"
+          >
+            <i className="bi bi-check-lg"></i>
+          </button>
+          <button
+            className="btn btn-outline-primary"
+            onClick={handleExecuteQuery}
+            title="Выполнить запрос"
+            disabled={!chart.selectedTable || !chart.xAxis || !chart.yAxis}
+          >
+            <i className="bi bi-play-fill"></i>
+          </button>
+          <button
+            className="btn btn-outline-danger"
+            onClick={() => onDelete(chart.id)}
+            title="Удалить график"
+          >
+            <i className="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+      
+      <div className="row">
+        <div className="col-md-6">
+          <div className='text-center text-white mb-2'>
+            <h6>Данные</h6>
           </div>
-          <div className="modal-body">
-            <div className="mb-3">
-              <label className="form-label">Название запроса *</label>
+          
+          {/* Выбор таблицы */}
+          <div className="mb-2">
+            <label className="form-label small text-white">Таблица</label>
+            <select
+              className="form-select form-select-sm bg-secondary text-light border-dark"
+              value={chart.selectedTable || ''}
+              onChange={(e) => handleTableChange(e.target.value)}
+            >
+              <option value="">Выберите таблицу</option>
+              {tableNames.map(tableName => (
+                <option key={tableName} value={tableName}>
+                  {tableName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Ось X */}
+          <div className="mb-2">
+            <label className="form-label small text-white">Ось X</label>
+            <select
+              className="form-select form-select-sm bg-secondary text-light border-dark"
+              value={chart.xAxis || ''}
+              onChange={(e) => handleFieldChange('xAxis', e.target.value)}
+              disabled={!chart.selectedTable}
+            >
+              <option value="">Выберите столбец</option>
+              {availableColumns.map(column => (
+                <option key={column} value={column}>
+                  {column}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Ось Y */}
+          <div className="mb-2">
+            <label className="form-label small text-white">Ось Y</label>
+            <select
+              className="form-select form-select-sm bg-secondary text-light border-dark"
+              value={chart.yAxis || ''}
+              onChange={(e) => handleFieldChange('yAxis', e.target.value)}
+              disabled={!chart.selectedTable}
+            >
+              <option value="">Выберите столбец</option>
+              {availableColumns.map(column => (
+                <option key={column} value={column}>
+                  {column}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="col-md-6">
+          <div className='text-center text-white mb-2'>
+            <h6>Внешний вид</h6>
+          </div>
+          
+          {/* Тип графика */}
+          <div className="mb-2">
+            <label className="form-label small text-white">Тип графика</label>
+            <select
+              className="form-select form-select-sm bg-secondary text-light border-dark"
+              value={chart.type || 'linear'}
+              onChange={(e) => handleFieldChange('type', e.target.value)}
+            >
+              <option value="linear">Линейный</option>
+              <option value="bar">Столбчатый</option>
+              <option value="pie">Круговая</option>
+              <option value="scatter">Точечная</option>
+            </select>
+          </div>
+
+          <div className="mb-2">
+            <label className="form-label small text-white">Интервал обновления (мс)</label>
+            <input
+              type="number"
+              className="form-control form-control-sm bg-secondary text-light border-dark"
+              value={chart.refreshInterval || 1000}
+              onChange={(e) => handleFieldChange('refreshInterval', parseInt(e.target.value))}
+              min="100"
+              max="10000"
+            />
+          </div>
+          
+          <div className="mb-2">
+            <label className="form-label small text-white">Цвет графика</label>
+            <div className="d-flex align-items-center">
               <input
-                type="text"
-                className="form-control bg-secondary text-light border-dark"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Введите название запроса"
+                type="color"
+                className="form-control form-control-color form-control-sm bg-secondary border-dark me-2"
+                value={chart.color || '#133592ff'}
+                onChange={(e) => handleFieldChange('color', e.target.value)}
+                style={{ width: '40px', height: '30px' }}
               />
+              <span className="small text-muted">{chart.color || '#133592ff'}</span>
             </div>
-
-            <div className="mb-3">
-              <label className="form-label">SQL запрос *</label>
-              <textarea
-                className="form-control bg-secondary text-light border-dark"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Введите SQL запрос"
-                rows="6"
-                style={{ fontFamily: 'monospace' }}
-              />
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label">Описание</label>
-              <textarea
-                className="form-control bg-secondary text-light border-dark"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Описание запроса (необязательно)"
-                rows="3"
-              />
-            </div>
-          </div>
-          <div className="modal-footer border-secondary">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Отмена
-            </button>
-            <button type="button" className="btn btn-primary" onClick={handleSave}>
-              Сохранить
-            </button>
           </div>
         </div>
       </div>
+
+      {/* Сгенерированный SQL запрос */}
+      {chart.selectedTable && chart.xAxis && chart.yAxis && (
+        <div className="mt-3 p-2 bg-secondary rounded">
+          <small className="text-white">SQL запрос:</small>
+          <code className="d-block text-info small mt-1">
+            SELECT {chart.xAxis}, {chart.yAxis} FROM {chart.selectedTable}
+          </code>
+        </div>
+      )}
     </div>
   );
 };
 
-// Компонент элемента сохраненного запроса
-const QueryItem = ({ queryItem, onExecute, onEdit, onDelete, isLoading }) => (
-  <div className="query-item p-3 mb-2 rounded bg-dark" style={{ border: '1px solid #444' }}>
-    <div className="d-flex justify-content-between align-items-start mb-2">
-      <h6 className="mb-1 flex-grow-1 text-truncate" title={queryItem.name}>
-        {queryItem.name}
-      </h6>
-      <div className="btn-group btn-group-sm">
-        <button
-          className="btn btn-outline-primary"
-          onClick={() => onExecute(queryItem.query)}
-          title="Выполнить запрос"
-          disabled={isLoading}
-        >
-          <i className="bi bi-play-fill"></i>
-        </button>
-        <button
-          className="btn btn-outline-warning"
-          onClick={() => onEdit(queryItem)}
-          title="Редактировать запрос"
-        >
-          <i className="bi bi-pencil"></i>
-        </button>
-        <button
-          className="btn btn-outline-danger"
-          onClick={() => onDelete(queryItem.id)}
-          title="Удалить запрос"
-        >
-          <i className="bi bi-trash"></i>
-        </button>
-      </div>
-    </div>
-    
-    {queryItem.description && (
-      <p className="small mb-2 text-muted">
-        {queryItem.description}
-      </p>
-    )}
-    
-    <div 
-      className="small text-info mt-2 query-code" 
-      style={{ 
-        fontFamily: 'monospace', 
-        fontSize: '11px',
-        backgroundColor: '#2a2a2a',
-        padding: '8px',
-        borderRadius: '4px',
-        overflowX: 'auto'
-      }}
-    >
-      {queryItem.query}
-    </div>
-  </div>
-);
+const SqlPanel = ({ 
+  show, 
+  onClose, 
+  onExecuteQuery, 
+  charts, 
+  selectedChartId, 
+  onSelectChart, 
+  onUpdateToggle, 
+  updatingCharts, 
+  onRemoveChart, 
+  editTitleValue,
+  tableNames,
+  columnsByTable,
+  setCharts
+}) => {
 
-// Компонент элемента истории запросов
-const HistoryItem = ({ item, charts, onClick }) => (
-  <div
-    className={`history-item-grafana ${item.success ? '' : 'history-error'}`}
-    onClick={() => onClick(item)}
-    style={{ cursor: 'pointer' }}
-  >
-    <div className="history-query">
-      <i className={`bi bi-${item.success ? 'check' : 'x'}-circle-fill text-${item.success ? 'success' : 'danger'} me-2`}></i>
-      {item.name || (item.query.length > 40 ? item.query.substring(0, 40) + '...' : item.query)}
-    </div>
-    <div className="history-time text-muted small">
-      {item.timestamp}
-      
-      {item.chartId && item.chartId !== 'all' ? (
-        <div className="text-info small">
-          График: {charts.findIndex(c => c.id === item.chartId) + 1}
-        </div>
-      ) : (
-        <div className="text-info small">Все графики</div>
-      )}
-      
-      {item.error && <div className="text-danger small">{item.error}</div>}
-    </div>
-  </div>
-);
-
-const SqlPanel = ({ show, onClose, onExecuteQuery, charts, selectedChartId, onSelectChart }) => {
-  const [savedQueries, setSavedQueries] = useState([]);
   const [queryHistory, setQueryHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastError, setLastError] = useState(null);
-  const [panelHeight, setPanelHeight] = useState(400);
-  const [isResizing, setIsResizing] = useState(false);
-  const [showQueryModal, setShowQueryModal] = useState(false);
-  const [editingQuery, setEditingQuery] = useState(null);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const panelRef = useRef(null);
-  const resizeStartY = useRef(0);
-  const resizeStartHeight = useRef(0);
 
-  // Загрузка сохраненных запросов из localStorage
   useEffect(() => {
     if (show) {
-      loadSavedQueries();
-      const savedHeight = localStorage.getItem('sqlPanelHeight');
-      if (savedHeight) {
-        setPanelHeight(parseInt(savedHeight));
-      }
+      // Инициализация при открытии панели
     }
   }, [show]);
-
-  const loadSavedQueries = useCallback(() => {
-    try {
-      const storedQueries = localStorage.getItem('savedQueries');
-      if (storedQueries) {
-        setSavedQueries(JSON.parse(storedQueries));
-      } else {
-        const initialQueries = [
-          {
-            id: 1,
-            name: 'Все измерения (последние 24 часа)',
-            query: 'SELECT * FROM measurements WHERE Measurement_time >= NOW() - INTERVAL 24 HOUR ORDER BY Measurement_time DESC',
-            description: 'Показывает все измерения за последние 24 часа'
-          },
-          {
-            id: 2,
-            name: 'Средние значения по часам',
-            query: 'SELECT HOUR(Measurement_time) as hour, AVG(Current_value) as avg_value FROM measurements GROUP BY HOUR(Measurement_time) ORDER BY hour',
-            description: 'Средние значения измерений сгруппированные по часам'
-          }
-        ];
-        setSavedQueries(initialQueries);
-        localStorage.setItem('savedQueries', JSON.stringify(initialQueries));
-      }
-    } catch (error) {
-      console.error('Ошибка при загрузке запросов:', error);
-      setLastError('Не удалось загрузить сохраненные запросы');
-    }
-  }, []);
-
-  const saveQuery = useCallback((query) => {
-    const updatedQueries = editingQuery
-      ? savedQueries.map(q => q.id === query.id ? query : q)
-      : [...savedQueries.filter(q => q.id !== query.id), query];
-
-    setSavedQueries(updatedQueries);
-    localStorage.setItem('savedQueries', JSON.stringify(updatedQueries));
-    setEditingQuery(null);
-  }, [savedQueries, editingQuery]);
-
-  const deleteQuery = useCallback((queryId) => {
-    if (window.confirm('Вы уверены, что хотите удалить этот запрос?')) {
-      const updatedQueries = savedQueries.filter(q => q.id !== queryId);
-      setSavedQueries(updatedQueries);
-      localStorage.setItem('savedQueries', JSON.stringify(updatedQueries));
-    }
-  }, [savedQueries]);
 
   const handleCloseError = useCallback(() => {
     setLastError(null);
   }, []);
 
-  const handleExecute = useCallback(async (query) => {
+  const handleExecute = useCallback(async (query, chartId = null) => {
     if (!query) return;
     
     setIsLoading(true);
     setLastError(null);
 
     try {
-      const normalizedChartId = normalizeId(selectedChartId);
+      const normalizedChartId = normalizeId(chartId);
       await onExecuteQuery(query, normalizedChartId);
       
       setQueryHistory(prev => [{
         query: query,
-        name: savedQueries.find(q => q.query === query)?.name || 'Custom Query',
+        name: `Запрос для графика ${charts.findIndex(c => c.id === chartId) + 1}`,
         timestamp: new Date().toLocaleTimeString(),
         success: true,
-        chartId: normalizedChartId || 'all'
+        chartId: normalizedChartId
       }, ...prev.slice(0, 9)]);
       
     } catch (error) {
       setLastError(error.message);
       setQueryHistory(prev => [{
         query: query,
-        name: savedQueries.find(q => q.query === query)?.name || 'Custom Query',
+        name: `Запрос для графика ${charts.findIndex(c => c.id === chartId) + 1}`,
         timestamp: new Date().toLocaleTimeString(),
         success: false,
         error: error.message,
-        chartId: normalizeId(selectedChartId) || 'all'
+        chartId: normalizeId(chartId)
       }, ...prev.slice(0, 9)]);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedChartId, onExecuteQuery, savedQueries]);
+  }, [charts, onExecuteQuery]);
 
   const handleHistoryClick = useCallback((historyItem) => {
-    if (historyItem.chartId && historyItem.chartId !== 'all') {
+    if (historyItem.chartId) {
       onSelectChart(historyItem.chartId);
-    } else {
-      onSelectChart(null);
     }
     setLastError(null);
   }, [onSelectChart]);
 
-  const startResize = useCallback((e) => {
-    e.preventDefault();
-    setIsResizing(true);
-    resizeStartY.current = e.clientY;
-    resizeStartHeight.current = panelHeight;
+  const handleSaveSettings = useCallback((updatedChart) => {
+    // Обновляем график в состоянии charts
+    setCharts(prev => prev.map(chart => 
+      chart.id === updatedChart.id ? { ...chart, ...updatedChart } : chart
+    ));
     
-    document.addEventListener('mousemove', handleResize);
-    document.addEventListener('mouseup', stopResize);
-    document.body.style.cursor = 'ns-resize';
-    document.body.style.userSelect = 'none';
-  }, [panelHeight]);
-
-  const handleResize = useCallback((e) => {
-    if (!isResizing) return;
-    
-    const deltaY = resizeStartY.current - e.clientY;
-    const newHeight = Math.max(200, Math.min(window.innerHeight - 100, resizeStartHeight.current + deltaY));
-    setPanelHeight(newHeight);
-  }, [isResizing]);
-
-  const stopResize = useCallback(() => {
-    setIsResizing(false);
-    document.removeEventListener('mousemove', handleResize);
-    document.removeEventListener('mouseup', stopResize);
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    
-    localStorage.setItem('sqlPanelHeight', panelHeight.toString());
-  }, [panelHeight]);
-
-  const toggleCollapse = useCallback(() => {
-    if (isCollapsed) {
-      setIsCollapsed(false);
-      setPanelHeight(400);
-    } else {
-      setIsCollapsed(true);
-      setPanelHeight(60);
-    }
-  }, [isCollapsed]);
-
-  const maximizePanel = useCallback(() => {
-    setIsCollapsed(false);
-    setPanelHeight(window.innerHeight - 100);
-  }, []);
-
-  const handleEditQuery = useCallback((queryItem) => {
-    setEditingQuery(queryItem);
-    setShowQueryModal(true);
-  }, []);
+    console.log('Настройки графика сохранены:', updatedChart);
+  }, [setCharts]);
 
   useEffect(() => {
     const handleKeyPress = (e) => {
@@ -388,196 +340,133 @@ const SqlPanel = ({ show, onClose, onExecuteQuery, charts, selectedChartId, onSe
       }
     };
 
-    document.addEventListener('keydown', handleKeyPress);
+    if (show) {
+      document.addEventListener('keydown', handleKeyPress);
+    }
+
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
-      document.removeEventListener('mousemove', handleResize);
-      document.removeEventListener('mouseup', stopResize);
     };
-  }, [show, onClose, handleResize, stopResize]);
+  }, [show, onClose]);
 
   if (!show) return null;
 
   return (
-    <>
-      <QueryEditorModal
-        show={showQueryModal}
-        onClose={() => {
-          setShowQueryModal(false);
-          setEditingQuery(null);
-        }}
-        onSave={saveQuery}
-        initialQuery={editingQuery}
-      />
-
-      <div 
-        ref={panelRef}
-        className="sql-panel-grafana"
-        style={{ 
-          height: isCollapsed ? '60px' : `${panelHeight}px`,
-          bottom: 0
-        }}
-      >
-        <div 
-          className="sql-panel-resize-handle-top"
-          onMouseDown={startResize}
-          style={{ cursor: isResizing ? 'ns-resize' : 'row-resize' }}
-        >
-          <div className="resize-handle-line"></div>
+    <div className="sql-panel-grafana " style={{ height: '500px' }}>
+      <div className="sql-panel-header-grafana">
+        <div className="sql-panel-title">
+          <i className="bi bi-sliders me-2"></i>
+          <span>Настройки графиков ({charts.length})</span>
         </div>
-
-        <div className="sql-panel-header-grafana">
-          <div className="sql-panel-title">
-            <i className="bi bi-database me-2"></i>
-            <span>Управление SQL запросами</span>
-            <div className="resize-controls ms-3">
-              <button
-                className="btn btn-sm btn-outline-secondary me-1"
-                onClick={toggleCollapse}
-                title={isCollapsed ? "Развернуть" : "Свернуть"}
-              >
-                <i className={`bi bi-chevron-${isCollapsed ? 'up' : 'down'}`}></i>
-              </button>
-              <button
-                className="btn btn-sm btn-outline-secondary me-1"
-                onClick={maximizePanel}
-                title="Развернуть на весь экран"
-              >
-                <i className="bi bi-fullscreen"></i>
-              </button>
-              <button
-                className="btn btn-sm btn-outline-secondary"
-                onClick={onClose}
-                title="Закрыть панель"
-              >
-                <i className="bi bi-x-lg"></i>
-              </button>
-            </div>
-          </div>
-          
-          {!isCollapsed && (
-            <button
-              className="btn btn-sm btn-success"
-              onClick={() => setShowQueryModal(true)}
-              title="Добавить новый запрос"
-            >
-              <i className="bi bi-plus-lg me-1"></i>
-              Новый запрос
-            </button>
-          )}
+        <div className="resize-controls">
+          <button
+            className="btn btn-sm btn-outline-secondary"
+            onClick={onClose}
+            title="Закрыть панель"
+          >
+            <i className="bi bi-x-lg"></i>
+          </button>
         </div>
+      </div>
 
-        {!isCollapsed && (
-          <>
-            <div className="sql-panel-content-grafana" style={{ height: `calc(100% - 120px)` }}>
-              <div className="sql-editor-container h-100">
-                <div className="sql-editor-header">
-                  <span className="sql-editor-tab active">Сохраненные запросы</span>
-                </div>
-                
-                <div className="chart-selector-container">
-                  <select 
-                    className="form-select form-select-sm"
-                    value={selectedChartId || ''}
-                    onChange={(e) => onSelectChart(e.target.value || null)}
-                    disabled={charts.length === 0 || isLoading}
-                  >
-                    <option value="">Все графики</option>
-                    {charts.map((chart, index) => (
-                      <option key={chart.id} value={chart.id}>
-                        График #{index + 1} - {chart.type === 'linear' ? 'Линейный' : 'Векторный'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="sql-editor h-100" style={{ overflowY: 'auto', padding: '10px' }}>
-                  {savedQueries.length === 0 ? (
-                    <div className="text-center text-muted py-4">
-                      <i className="bi bi-inbox display-4 d-block mb-2"></i>
-                      <p>Нет сохраненных запросов</p>
-                      <button 
-                        className="btn btn-primary btn-sm"
-                        onClick={() => setShowQueryModal(true)}
-                      >
-                        Создать первый запрос
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="query-list">
-                      {savedQueries.map((queryItem) => (
-                        <QueryItem
-                          key={queryItem.id}
-                          queryItem={queryItem}
-                          onExecute={handleExecute}
-                          onEdit={handleEditQuery}
-                          onDelete={deleteQuery}
-                          isLoading={isLoading}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
+      <div className="sql-panel-content-grafana">
+        <div className="sql-editor-container h-100">
+          <div className="sql-editor" style={{ overflowY: 'auto', padding: '10px' }}>
+            {charts.length === 0 ? (
+              <div className="text-center text-muted py-4">
+                <i className="bi bi-bar-chart display-4 mb-3 text-white"></i>
+                <h6 className="text-white">Нет добавленных графиков</h6>
               </div>
-
-              <div className="sql-panel-sidebar">
-                <div className="sidebar-section">
-                  <h6>История выполнения</h6>
-                  <div className="query-history-grafana">
-                    {queryHistory.length === 0 ? (
-                      <div className="text-muted small p-2">История запросов пуста</div>
-                    ) : (
-                      queryHistory.map((item, index) => (
-                        <HistoryItem
-                          key={index}
-                          item={item}
-                          charts={charts}
-                          onClick={handleHistoryClick}
-                        />
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {isLoading && (
-              <div className="sql-panel-loading">
-                <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
-                  <span className="visually-hidden">Загрузка...</span>
-                </div>
-                <span>Выполнение запроса...</span>
+            ) : (
+              <div className="chart-settings-list">
+                {charts.map((chart) => (
+                  <ChartSettings
+                    key={chart.id}
+                    chart={chart}
+                    charts={charts}
+                    onExecute={handleExecute}
+                    onSave={handleSaveSettings}
+                    onDelete={onRemoveChart}
+                    onUpdateToggle={onUpdateToggle}
+                    updatingCharts={updatingCharts}
+                    editTitleValue={editTitleValue}
+                    tableNames={tableNames}
+                    columnsByTable={columnsByTable}
+                  />
+                ))}
               </div>
             )}
+          </div>
+        </div>
 
-            <ErrorAlert error={lastError} onClose={handleCloseError} />
-
-            <div className="sql-panel-footer-grafana">
-              <div className="footer-left">
-                <small className="text-muted">
-                  <i className="bi bi-info-circle me-1"></i>
-                  {selectedChartId 
-                    ? `Запрос обновит только выбранный график` 
-                    : `Запрос обновит все графики`}
-                </small>
-              </div>
-              <div className="footer-right">
-                <small className="text-muted me-3 d-none d-md-inline">
-                  Перетащите верхнюю границу для изменения размера
-                </small>
-                <button
-                  className="btn btn-sm btn-secondary"
-                  onClick={onClose}
-                  disabled={isLoading}
-                >
-                  Закрыть
-                </button>
-              </div>
+        <div className="sql-panel-sidebar">
+          <div className="sidebar-section">
+            <h6>
+              <i className="bi bi-clock-history me-2"></i>
+              История запросов
+            </h6>
+            <div className="query-history-grafana">
+              {queryHistory.length === 0 ? (
+                <div className="text-muted small p-2">История запросов пуста</div>
+              ) : (
+                queryHistory.map((item, index) => (
+                  <div
+                    key={index}
+                    className={`history-item-grafana ${item.success ? '' : 'history-error'}`}
+                    onClick={() => handleHistoryClick(item)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="history-query">
+                      <i className={`bi bi-${item.success ? 'check' : 'x'}-circle-fill text-${item.success ? 'success' : 'danger'} me-2`}></i>
+                      {item.name}
+                    </div>
+                    <div className="history-time text-muted small">
+                      {item.timestamp}
+                      {item.chartId && (
+                        <div className="text-info small">
+                          График: {charts.findIndex(c => c.id === item.chartId) + 1}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-          </>
-        )}
+          </div>
+        </div>
       </div>
-    </>
+
+      {isLoading && (
+        <div className="sql-panel-loading">
+          <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
+            <span className="visually-hidden">Загрузка...</span>
+          </div>
+          <span>Выполнение запроса...</span>
+        </div>
+      )}
+
+      <ErrorAlert error={lastError} onClose={handleCloseError} />
+
+      <div className="sql-panel-footer-grafana">
+        <div className="footer-left">
+          <small className="text-muted">
+            <i className="bi bi-info-circle me-1"></i>
+            {selectedChartId 
+              ? `Выбран график: ${charts.findIndex(c => c.id === selectedChartId) + 1}` 
+              : 'Всего графиков: ' + charts.length}
+          </small>
+        </div>
+        <div className="footer-right">
+          <button
+            className="btn btn-sm btn-secondary"
+            onClick={onClose}
+            disabled={isLoading}
+          >
+            Закрыть
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 

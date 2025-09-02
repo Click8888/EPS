@@ -5,30 +5,38 @@ export const Chart = props => {
     const {
         data,
         type,
+        isUpdating,
         colors: {
             backgroundColor = '#2a2a2a',
-            lineColor = '#2962FF',
+            lineColor = '#133592', // Убираем ff в конце (альфа-канал)
             textColor = 'white',
-            areaTopColor = '#2962FF',
-            areaBottomColor = 'rgba(41, 98, 255, 0.28)',
+            areaTopColor = '#2a4a9c', // Заменяем полупрозрачный цвет на обычный
+            areaBottomColor = '#1a2a5c', // Заменяем более прозрачный цвет на обычный
         } = {},
-        updateInterval = 1000, // Увеличим интервал для стабильности
-        onDataUpdate
     } = props;
 
     const chartContainerRef = useRef();
     const chartRef = useRef(null);
     const seriesRef = useRef(null);
     const [resizeObserver, setResizeObserver] = useState(null);
-    const updateIntervalRef = useRef(null);
-    const isUserInteractingRef = useRef(false);
-    const interactionTimeoutRef = useRef(null);
+    const lastDataRef = useRef([]);
+
+    // Функция для преобразования 8-значного HEX в 6-значный (убираем альфа-канал)
+    const normalizeColor = (color) => {
+        if (!color) return '#133592';
+        
+        // Если цвет в формате #RRGGBBAA, убираем альфа-канал
+        if (color.length === 9 && color.startsWith('#')) {
+            return color.substring(0, 7);
+        }
+        
+        return color;
+    };
 
     // Функция для преобразования времени HH:MM:SS.mmm в секунды с миллисекундами
     const timeToSeconds = (timeString) => {
         if (!timeString) return 0;
         
-        // Разделяем время и миллисекунды
         const [timePart, millisecondsPart] = timeString.split('.');
         const [hours, minutes, seconds] = timePart.split(':').map(Number);
         const milliseconds = millisecondsPart ? parseInt(millisecondsPart) : 0;
@@ -56,35 +64,19 @@ export const Chart = props => {
         const uniqueDataMap = new Map();
         
         rawData.forEach(item => {
-            const timeInSeconds = timeToSeconds(item.time);
-            uniqueDataMap.set(timeInSeconds, {
-                time: timeInSeconds,
-                value: item.value
-            });
+            if (item.time && item.value !== undefined) {
+                const timeInSeconds = timeToSeconds(item.time);
+                uniqueDataMap.set(timeInSeconds, {
+                    time: timeInSeconds,
+                    value: parseFloat(item.value) || 0
+                });
+            }
         });
 
         const uniqueData = Array.from(uniqueDataMap.values());
         uniqueData.sort((a, b) => a.time - b.time);
 
         return uniqueData;
-    };
-
-    // Обработчики взаимодействия пользователя
-    const handleUserInteractionStart = () => {
-        isUserInteractingRef.current = true;
-        if (interactionTimeoutRef.current) {
-            clearTimeout(interactionTimeoutRef.current);
-        }
-    };
-
-    const handleUserInteractionEnd = () => {
-        if (interactionTimeoutRef.current) {
-            clearTimeout(interactionTimeoutRef.current);
-        }
-        
-        interactionTimeoutRef.current = setTimeout(() => {
-            isUserInteractingRef.current = false;
-        }, 1500);
     };
 
     // Эффект для создания графика
@@ -99,6 +91,11 @@ export const Chart = props => {
                 });
             }
         };
+
+        // Нормализуем цвета (убираем альфа-канал)
+        const normalizedLineColor = normalizeColor(lineColor);
+        const normalizedAreaTopColor = normalizeColor(areaTopColor);
+        const normalizedAreaBottomColor = normalizeColor(areaBottomColor);
 
         const chart = createChart(chartContainerRef.current, {
             layout: {
@@ -131,14 +128,10 @@ export const Chart = props => {
         });
 
         const newSeries = chart.addSeries(AreaSeries, { 
-            lineColor, 
-            topColor: areaTopColor, 
-            bottomColor: areaBottomColor 
+            lineColor: normalizedLineColor, 
+            topColor: normalizedAreaTopColor, 
+            bottomColor: normalizedAreaBottomColor 
         });
-
-        // Подписываемся на события взаимодействия
-        chart.timeScale().subscribeVisibleLogicalRangeChange(handleUserInteractionStart);
-        chart.timeScale().subscribeVisibleTimeRangeChange(handleUserInteractionStart);
 
         chartRef.current = chart;
         seriesRef.current = newSeries;
@@ -155,98 +148,77 @@ export const Chart = props => {
         observer.observe(chartContainerRef.current);
         setResizeObserver(observer);
 
-        // Обработчики мыши
-        const handleMouseDown = () => handleUserInteractionStart();
-        const handleMouseUp = () => handleUserInteractionEnd();
-
-        chartContainerRef.current.addEventListener('mousedown', handleMouseDown);
-        chartContainerRef.current.addEventListener('mouseup', handleMouseUp);
-
         return () => {
             observer.disconnect();
-            
-            if (chartContainerRef.current) {
-                chartContainerRef.current.removeEventListener('mousedown', handleMouseDown);
-                chartContainerRef.current.removeEventListener('mouseup', handleMouseUp);
-            }
-            
-            if (interactionTimeoutRef.current) {
-                clearTimeout(interactionTimeoutRef.current);
-            }
-            
             chart.remove();
         };
     }, [backgroundColor, textColor, lineColor, areaTopColor, areaBottomColor]);
 
-    // Эффект для ОТОБРАЖЕНИЯ данных (не обновления)
+    // Эффект для обновления данных
     useEffect(() => {
         if (seriesRef.current && data && data.length > 0) {
-            console.log('Setting initial data:', data.length, 'points');
             const processedData = processChartData(data);
-            console.log('Processed data:', processedData.length, 'points');
             
             if (processedData.length > 0) {
+                console.log('Updating chart with data:', processedData);
+                
+                // Всегда обновляем данные, не сравниваем с предыдущими
                 seriesRef.current.setData(processedData);
+                lastDataRef.current = processedData;
                 
                 if (chartRef.current) {
                     chartRef.current.timeScale().fitContent();
                 }
+            } else {
+                console.log('No valid data to display');
+                seriesRef.current.setData([]);
             }
+        } else if (seriesRef.current && (!data || data.length === 0)) {
+            console.log('Clearing chart data');
+            seriesRef.current.setData([]);
         }
-    }, [data]); // Только при изменении данных
+    }, [data, isUpdating]);
 
-    // Эффект для ОБНОВЛЕНИЯ данных через интервал
+    // Эффект для обновления цвета при изменении
     useEffect(() => {
-    if (!seriesRef.current || !onDataUpdate) return;
-
-        console.log(seriesRef.current)
-        console.log(onDataUpdate)
-    if (seriesRef.current && onDataUpdate) {
-        console.log('1')
-        if (updateIntervalRef.current) {
-            clearInterval(updateIntervalRef.current);
+        if (seriesRef.current) {
+            // Нормализуем цвета (убираем альфа-канал)
+            const normalizedLineColor = normalizeColor(lineColor);
+            const normalizedAreaTopColor = normalizeColor(areaTopColor);
+            const normalizedAreaBottomColor = normalizeColor(areaBottomColor);
+            
+            seriesRef.current.applyOptions({
+                lineColor: normalizedLineColor,
+                topColor: normalizedAreaTopColor,
+                bottomColor: normalizedAreaBottomColor
+            });
         }
-
-        updateIntervalRef.current = setInterval(async () => {
-            try {
-                if (isUserInteractingRef.current) {
-                    return;
-                }
-
-                const newData = await onDataUpdate();
-                if (newData && newData.length > 0) {
-                    // Добавляем только новые точки
-                    newData.forEach(point => {
-                        const timeInSeconds = timeToSeconds(point.time);
-                        seriesRef.current.update({
-                            time: timeInSeconds,
-                            value: point.value
-                        });
-                    });
-
-                    // Автоматическое масштабирование
-                    if (chartRef.current && !isUserInteractingRef.current) {
-                        chartRef.current.timeScale().fitContent();
-                    }
-                }
-            } catch (error) {
-                console.error('Ошибка при обновлении данных:', error);
-            }
-        }, updateInterval);
-    }
-
-    return () => {
-        if (updateIntervalRef.current) {
-            clearInterval(updateIntervalRef.current);
-        }
-    };
-}, [updateInterval]);
+    }, [lineColor, areaTopColor, areaBottomColor]);
 
     return (
         <div
             ref={chartContainerRef}
-            style={{ width: '100%', height: '100%', minHeight: '300px' }}
-        />
+            style={{ 
+                width: '100%', 
+                height: '100%', 
+                minHeight: '300px',
+                position: 'relative'
+            }}
+        >
+            {(!data || data.length === 0) && (
+                <div style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    color: '#888',
+                    textAlign: 'center'
+                }}>
+                    <i className="bi bi-bar-chart" style={{ fontSize: '2rem', display: 'block', marginBottom: '10px' }}></i>
+                    <span>Нет данных для отображения</span>
+                </div>
+            )}
+        </div>
     );
 };
 

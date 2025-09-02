@@ -8,5 +8,3 @@ type Current_measurements struct {
 	Sensor_model     string
 	Is_overload      bool
 }
-
-

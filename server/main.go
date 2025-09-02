@@ -50,7 +50,9 @@ func main() {
 
 	// Публичные маршруты (без аутентификации)
 	r.GET("/api/getparams", routes.GetDatabases)
+	r.GET("/api/metadata", routes.GetDatabaseMetadata)	
 	r.POST("/api/execute-query", routes.HandleSQLQuery)
+	
 
 	// Выведите все зарегистрированные маршруты
 	fmt.Println("Registered routes:")

@@ -1,11 +1,11 @@
 package routes
 
 import (
-	"net/http"
 	"EPS/database"
 	"EPS/models"
-	"fmt"
+	"net/http"
 	"strings"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,19 +14,19 @@ func GetDatabases(c *gin.Context) {
 	// userID := c.MustGet("userID").(uint) // Получаем ID пользователя из middleware
 
 	var databases []models.Current_measurements
-	if err := database.DB.Find(&databases).Error; err != nil { 	//запись данных из БД в переменную databases
+	if err := database.DB.Find(&databases).Error; err != nil { //запись данных из БД в переменную databases
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch databases"})
 		return
 	}
 
 	// Формируем ответ с дополнительной информацией
 	type Measurements struct {
-		ID                uint 
-		Measurement_time  string
-		Current_value     float32
-		Circuit_id 				string
-		Sensor_model 			string
-		Is_overload    		bool 
+		ID               uint
+		Measurement_time string
+		Current_value    float32
+		Circuit_id       string
+		Sensor_model     string
+		Is_overload      bool
 	}
 
 	var result []Measurements
@@ -35,12 +35,11 @@ func GetDatabases(c *gin.Context) {
 		// database.DB.First(&creator, db.ID_creator)
 
 		result = append(result, Measurements{
-			ID:        					db.ID,
-			Measurement_time:   db.Measurement_time,
-			Current_value: 			db.Current_value,
+			ID:               db.ID,
+			Measurement_time: db.Measurement_time,
+			Current_value:    db.Current_value,
 		})
 
-		
 	}
 
 	c.JSON(http.StatusOK, gin.H{"databases": result})
@@ -48,61 +47,56 @@ func GetDatabases(c *gin.Context) {
 }
 
 func HandleSQLQuery(c *gin.Context) {
-		fmt.Println("aboba")
-    var request struct {
-        Query string `json:"Sql"`
-    }
 
-		fmt.Println("aboba")
-    if err := c.ShouldBindJSON(&request); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-				
-        return
-    }
+	var request struct {
+		Query string `json:"Sql"`
+	}
 
-		fmt.Println("aboba")
-    // Проверяем, что запрос не пустой
-    if request.Query == "" {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "SQL query is required"})
-        return
-    }
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 
-    // Ограничиваем только SELECT запросы для безопасности
-    trimmedQuery := strings.TrimSpace(request.Query)
-    if !strings.HasPrefix(strings.ToUpper(trimmedQuery), "SELECT") {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Only SELECT queries are allowed"})
-        return
-    }
+		return
+	}
 
-    // Выполняем SQL запрос
-    var databases []models.Current_measurements
-    err := database.DB.Raw(request.Query).Scan(&databases).Error
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to execute query: " + err.Error()})
-        return
-    }
+	// Проверяем, что запрос не пустой
+	if request.Query == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "SQL query is required"})
+		return
+	}
 
-    // ВЫВОД ДЛЯ ОТЛАДКИ - посмотрим что возвращается
-    fmt.Printf("SQL Query executed successfully. Returned %d rows\n", len(databases))
-    if len(databases) > 0 {
-        fmt.Printf("First row: %+v\n", databases[0])
-    }
+	// Ограничиваем только SELECT запросы для безопасности
+	trimmedQuery := strings.TrimSpace(request.Query)
+	if !strings.HasPrefix(strings.ToUpper(trimmedQuery), "SELECT") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only SELECT queries are allowed"})
+		return
+	}
 
-    // Возвращаем результаты
-    var result []models.Current_measurements
-		for _, db := range databases {
-			// var creator models.User
-			// database.DB.First(&creator, db.ID_creator)
+	// Выполняем SQL запрос
+	var databases []models.Current_measurements
+	err := database.DB.Raw(request.Query).Scan(&databases).Error
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to execute query: " + err.Error()})
+		return
+	}
 
-			result = append(result, models.Current_measurements{
-				ID:        					db.ID,
-				Measurement_time:   db.Measurement_time,
-				Current_value: 			db.Current_value,
-			})
+	// ВЫВОД ДЛЯ ОТЛАДКИ - посмотрим что возвращается
+	if len(databases) > 0 {
 
-			fmt.Printf("Results: %+v\n", result)
-		}
+	}
 
-		c.JSON(http.StatusOK, gin.H{"databases": result})
+	// Возвращаем результаты
+	var result []models.Current_measurements
+	for _, db := range databases {
+		// var creator models.User
+		// database.DB.First(&creator, db.ID_creator)
+
+		result = append(result, models.Current_measurements{
+			ID:               db.ID,
+			Measurement_time: db.Measurement_time,
+			Current_value:    db.Current_value,
+		})
+
+	}
+
+	c.JSON(http.StatusOK, gin.H{"databases": result})
 }
-
