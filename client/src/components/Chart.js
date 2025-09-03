@@ -8,10 +8,10 @@ export const Chart = props => {
         isUpdating,
         colors: {
             backgroundColor = '#2a2a2a',
-            lineColor = '#133592', // Убираем ff в конце (альфа-канал)
+            lineColor = '#133592',
             textColor = 'white',
-            areaTopColor = '#2a4a9c', // Заменяем полупрозрачный цвет на обычный
-            areaBottomColor = '#1a2a5c', // Заменяем более прозрачный цвет на обычный
+            areaTopColor = '#2a4a9c', 
+            areaBottomColor = '#1a2a5c', 
         } = {},
     } = props;
 
@@ -58,26 +58,31 @@ export const Chart = props => {
 
     // Функция для обработки и валидации данных
     const processChartData = (rawData) => {
-        if (!rawData || rawData.length === 0) return [];
+  if (!rawData || rawData.length === 0) return [];
 
-        // Удаляем дубликаты и сортируем по времени
-        const uniqueDataMap = new Map();
-        
-        rawData.forEach(item => {
-            if (item.time && item.value !== undefined) {
-                const timeInSeconds = timeToSeconds(item.time);
-                uniqueDataMap.set(timeInSeconds, {
-                    time: timeInSeconds,
-                    value: parseFloat(item.value) || 0
-                });
-            }
-        });
+  // Удаляем дубликаты и сортируем по времени
+  const uniqueDataMap = new Map();
+  
+  rawData.forEach(item => {
+    if (item.time && item.value !== undefined) {
+      const timeInSeconds = timeToSeconds(item.time);
+      uniqueDataMap.set(timeInSeconds, {
+        time: timeInSeconds,
+        value: parseFloat(item.value) || 0
+      });
+    }
+  });
 
-        const uniqueData = Array.from(uniqueDataMap.values());
-        uniqueData.sort((a, b) => a.time - b.time);
+  let uniqueData = Array.from(uniqueDataMap.values());
+  uniqueData.sort((a, b) => a.time - b.time);
 
-        return uniqueData;
-    };
+  // Ограничиваем количество точек до 1500
+  if (uniqueData.length > 1500) {
+    uniqueData = uniqueData.slice(-1500); // Берем последние 1500 точек
+  }
+
+  return uniqueData;
+};
 
     // Эффект для создания графика
     useEffect(() => {
@@ -92,7 +97,6 @@ export const Chart = props => {
             }
         };
 
-        // Нормализуем цвета (убираем альфа-канал)
         const normalizedLineColor = normalizeColor(lineColor);
         const normalizedAreaTopColor = normalizeColor(areaTopColor);
         const normalizedAreaBottomColor = normalizeColor(areaBottomColor);
@@ -182,7 +186,6 @@ export const Chart = props => {
     // Эффект для обновления цвета при изменении
     useEffect(() => {
         if (seriesRef.current) {
-            // Нормализуем цвета (убираем альфа-канал)
             const normalizedLineColor = normalizeColor(lineColor);
             const normalizedAreaTopColor = normalizeColor(areaTopColor);
             const normalizedAreaBottomColor = normalizeColor(areaBottomColor);

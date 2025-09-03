@@ -79,7 +79,7 @@ const ChartSettings = ({
     };
     onSave(updatedChart);
   };
-
+  console.log("chart.refreshInterval", chart.refreshInterval)
   const generateQuery = () => {
     if (!chart.selectedTable || !chart.xAxis || !chart.yAxis) {
       alert('Выберите таблицу и обе оси для генерации запроса');
@@ -95,7 +95,7 @@ const ChartSettings = ({
       onExecute(query, chart.id);
     }
   };
-
+  
   return (
     <div className="chart-settings-item p-3 mb-3 rounded bg-dark" style={{ border: '1px solid #444' }}>
       <div className="d-flex justify-content-between align-items-start mb-3">
@@ -198,35 +198,21 @@ const ChartSettings = ({
             <h6>Внешний вид</h6>
           </div>
           
-          {/* Тип графика */}
-          <div className="mb-2">
-            <label className="form-label small text-white">Тип графика</label>
-            <select
-              className="form-select form-select-sm bg-secondary text-light border-dark"
-              value={chart.type || 'linear'}
-              onChange={(e) => handleFieldChange('type', e.target.value)}
-            >
-              <option value="linear">Линейный</option>
-              <option value="bar">Столбчатый</option>
-              <option value="pie">Круговая</option>
-              <option value="scatter">Точечная</option>
-            </select>
-          </div>
-
+              
           <div className="mb-2">
             <label className="form-label small text-white">Интервал обновления (мс)</label>
             <input
               type="number"
               className="form-control form-control-sm bg-secondary text-light border-dark"
-              value={chart.refreshInterval || 1000}
-              onChange={(e) => handleFieldChange('refreshInterval', parseInt(e.target.value))}
-              min="100"
+              value={chart.refreshInterval || 100}
+              onChange={(e) => handleFieldChange('refreshInterval', parseInt(e.target.value) || 100)}
+              min="0"
               max="10000"
             />
           </div>
           
           <div className="mb-2">
-            <label className="form-label small text-white">Цвет графика</label>
+            <label className="form-label small text-white">Цвет линии графика</label>
             <div className="d-flex align-items-center">
               <input
                 type="color"
@@ -273,7 +259,8 @@ const SqlPanel = ({
   const [queryHistory, setQueryHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastError, setLastError] = useState(null);
-
+  const [editingCharts, setEditingCharts] = useState({}); // Новое состояние для редактируемых настроек
+  
   useEffect(() => {
     if (show) {
       // Инициализация при открытии панели

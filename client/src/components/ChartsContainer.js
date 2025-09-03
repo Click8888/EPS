@@ -59,7 +59,7 @@ const ChartsContainer = ({
           {charts.map((chart, index) => {
             const isUpdating = updatingCharts.has(chart.id);
             const isEditing = editingChartId === chart.id;
-            const displayTitle = chart.title || `График #${index + 1}`;
+            const displayTitle = `График #${index + 1}`;
 
             return (
               <div 
@@ -152,15 +152,15 @@ const ChartsContainer = ({
                   <div className="chart-content">
                     <Chart 
                       key={`chart-content-${chart.id}-${index}`}
-                      data={chart.data || measurements}
+                      data={chart.data || []}
                       type={chart.type}
                       isUpdating={isUpdating}
                       colors={{
                         backgroundColor: '#2a2a2a',
                         textColor: 'white',
                         lineColor: chart.color || '#133592',
-                        areaTopColor: '#2a4a9c', // Более светлый оттенок для верха
-                        areaBottomColor: '#1a2a5c' // Более темный оттенок для низа
+                        areaTopColor: '#2a4a9c',
+                        areaBottomColor: '#1a2a5c'
                       }}
                     />
                     {/* Отладочная информация */}
@@ -170,9 +170,12 @@ const ChartsContainer = ({
                   
                   <div className="chart-footer">
                     <small className="text-muted">
-                      {(chart.data || measurements).length} точек данных • 
+                      {(chart.data || []).length} точек данных • 
                       {chart.type === 'linear' ? ' Временной ряд' : ' Векторная диаграмма'}
                       {isUpdating && <span className="text-warning ms-2">🔄 Обновляется...</span>}
+                      {(chart.data || []).length >= 1500 && (
+                        <span className="text-info ms-2">ⓘ Лимит: 1500 точек</span>
+                      )}
                     </small>
                   </div>
                 </div>

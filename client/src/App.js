@@ -11,17 +11,22 @@ import ChartTypeModal from './components/ChartTypeModal';
 const MAX_CHARTS = 6;
 const API_BASE_URL = 'http://localhost:8080/api';
 
-
 function transformData(inputJson, xAxis = 'Measurement_time', yAxis = 'Current_value') {
-  return inputJson.map(item => ({
+  let transformedData = inputJson.map(item => ({
     time: item[xAxis] || item.Measurement_time,
     value: item[yAxis] || item.Current_value
   }));
+  
+  // Ограничиваем количество точек до 1500
+  if (transformedData.length > 1500) {
+    transformedData = transformedData.slice(-1500);
+  }
+  
+  return transformedData;
 }
 
 function App() {
   const [charts, setCharts] = useState([]);
-  const [measurements, setMeasurements] = useState([]);
   const [selectedChartId, setSelectedChartId] = useState(null);
   const [draggedChart, setDraggedChart] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -34,58 +39,58 @@ function App() {
   const [tablesMetadata, setTablesMetadata] = useState({});
   const [tableNames, setTableNames] = useState([]);
   const [columnsByTable, setColumnsByTable] = useState({});
+  
   const normalizeId = (id) => {
     if (id === null || id === undefined || id === '') return null;
     return typeof id === 'string' ? parseInt(id, 10) : id;
   };
-              //МЕТАДАННЫЕ
-  const parseMetadata = useCallback((metadata) => {
-  if (!metadata || !metadata.tables) return;
-  
-  // Извлекаем названия таблиц
-  const tables = metadata.tables.map(table => table.table_name);
-  setTableNames(tables);
-  
-  // Создаем объект с колонками по таблицам
-  const columnsMap = {};
-  metadata.tables.forEach(table => {
-    columnsMap[table.table_name] = table.columns.map(col => col.column_name);
-  });
-  setColumnsByTable(columnsMap);
-  
-  // Сохраняем полные метаданные
-  setTablesMetadata(metadata);
-  
-  console.log('Table names:', tables);
-  console.log('Columns by table:', columnsMap);
-}, []);
 
+  //МЕТАДАННЫЕ
+  const parseMetadata = useCallback((metadata) => {
+    if (!metadata || !metadata.tables) return;
+    
+    // Извлекаем названия таблиц
+    const tables = metadata.tables.map(table => table.table_name);
+    setTableNames(tables);
+    
+    // Создаем объект с колонками по таблицам
+    const columnsMap = {};
+    metadata.tables.forEach(table => {
+      columnsMap[table.table_name] = table.columns.map(col => col.column_name);
+    });
+    setColumnsByTable(columnsMap);
+    
+    // Сохраняем полные метаданные
+    setTablesMetadata(metadata);
+    
+    console.log('Table names:', tables);
+    console.log('Columns by table:', columnsMap);
+  }, []);
 
   // Парсинг названий таблицы, столбцов
   useEffect(() => {
-  const loadNamesData = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/metadata`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+    const loadNamesData = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/metadata`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const metadata = await response.json();
+        console.log('Raw metadata:', metadata);
+        
+        // Парсим и распределяем метаданные
+        parseMetadata(metadata.metadata || metadata);
+      } catch (error) {
+        console.error("Ошибка при загрузке названий:", error);
       }
-      
-      const metadata = await response.json();
-      console.log('Raw metadata:', metadata);
-      
-      // Парсим и распределяем метаданные
-      parseMetadata(metadata.metadata || metadata);
-    } catch (error) {
-      console.error("Ошибка при загрузке названий:", error);
-    }
-  };
-  
-  loadNamesData();
-}, [parseMetadata]);
-  
-  // Загрузка начальных данных
-useEffect(() => {
-  const loadInitialData = async () => {
+    };
+    
+    loadNamesData();
+  }, [parseMetadata]);
+
+  // Функция для получения новых данных
+  const fetchNewData = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/getparams`);
       if (!response.ok) {
@@ -93,51 +98,28 @@ useEffect(() => {
       }
       
       const data = await response.json();
-      console.log('Initial API response:', data);
+      console.log('Raw API response:', data);
       
       const transformedData = transformData(data.databases);
-      console.log('Initial transformed data:', transformedData);
+      console.log('Transformed data:', transformedData);
       
-      setMeasurements(transformedData);
+      return transformedData;
     } catch (error) {
-      console.error("Ошибка при загрузке начальных данных:", error);
+      console.error("Ошибка при загрузке данных:", error);
+      return [];
     }
-  };
-
-  loadInitialData();
-}, []);
-
-  // Функция для получения новых данных
-const fetchNewData = useCallback(async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/getparams`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('Raw API response:', data);
-    
-    const transformedData = transformData(data.databases);
-    console.log('Transformed data:', transformedData);
-    
-    return transformedData;
-  } catch (error) {
-    console.error("Ошибка при загрузке данных:", error);
-    return [];
-  }
-}, []);
+  }, []);
 
   const handleChartTitleChange = useCallback((chartId, newTitle) => {
-  const normalizedId = normalizeId(chartId);
-  setCharts(prev => prev.map(chart => 
-    chart.id === normalizedId 
-      ? { ...chart, title: newTitle }
-      : chart
-  ));
-}, []);
+    const normalizedId = normalizeId(chartId);
+    setCharts(prev => prev.map(chart => 
+      chart.id === normalizedId 
+        ? { ...chart, title: newTitle }
+        : chart
+    ));
+  }, []);
 
-  // Callback для запуска/остановки обновления графика
+  // В App.js, обновите handleChartUpdateToggle
 const handleChartUpdateToggle = useCallback(async (chartId) => {
   const normalizedChartId = normalizeId(chartId);
   
@@ -169,26 +151,69 @@ const handleChartUpdateToggle = useCallback(async (chartId) => {
   }
 }, [updatingCharts, fetchNewData]);
 
-    // Эффект для непрерывного обновления графиков
+// Эффект для непрерывного обновления графиков
 useEffect(() => {
   if (updatingCharts.size === 0) return;
 
-  const interval = setInterval(async () => {
-    const newData = await fetchNewData();
-    console.log('Fetched new data:', newData);
-    
-    if (newData.length > 0) {
-      setCharts(prev => prev.map(chart => 
-        updatingCharts.has(chart.id) 
-          ? { ...chart, data: newData }
-          : chart
-      ));
+  const intervals = {};
+
+  // Создаем отдельные интервалы для каждого графика с его собственным интервалом
+  charts.forEach(chart => {
+    if (updatingCharts.has(chart.id)) {
+      const interval = chart.refreshInterval || 100; // Используем интервал из настроек графика
+      
+      if (!intervals[interval]) {
+        intervals[interval] = setInterval(async () => {
+          const newData = await fetchNewData();
+          console.log('Fetched new data:', newData);
+          
+          if (newData.length > 0) {
+            setCharts(prev => prev.map(c => 
+              updatingCharts.has(c.id) && c.refreshInterval === interval
+                ? { ...c, data: newData }
+                : c
+            ));
+          }
+        }, interval);
+      }
     }
-  }, UpdateInterval);
+  });
 
-  return () => clearInterval(interval);
-}, [updatingCharts, fetchNewData, UpdateInterval]);
+  return () => {
+    // Очищаем все интервалы
+    Object.values(intervals).forEach(intervalId => clearInterval(intervalId));
+  };
+}, [updatingCharts, fetchNewData, charts]);
 
+  // Эффект для непрерывного обновления графиков
+  useEffect(() => {
+    if (updatingCharts.size === 0) return;
+
+    const interval = setInterval(async () => {
+      const newData = await fetchNewData();
+      console.log('Fetched new data:', newData);
+      
+      if (newData.length > 0) {
+        setCharts(prev => prev.map(chart => {
+          if (updatingCharts.has(chart.id)) {
+            // Объединяем старые и новые данные, ограничивая до 1500 точек
+            const currentData = chart.data || [];
+            const combinedData = [...currentData, ...newData];
+            
+            let limitedData = combinedData;
+            if (combinedData.length > 1500) {
+              limitedData = combinedData.slice(-1500); // Берем последние 1500 точек
+            }
+            
+            return { ...chart, data: limitedData };
+          }
+          return chart;
+        }));
+      }
+    }, UpdateInterval);
+
+    return () => clearInterval(interval);
+  }, [updatingCharts, fetchNewData, UpdateInterval]);
 
   // Обработчик SQL запросов
   const handleExecuteQuery = useCallback(async (query, chartId = null) => {
@@ -208,11 +233,16 @@ useEffect(() => {
       if (normalizedChartId) {
         // Находим график чтобы получить настройки осей
         const chart = charts.find(c => c.id === normalizedChartId);
-        const transformedData = transformData(
+        let transformedData = transformData(
           data.databases, 
           chart?.xAxis, 
           chart?.yAxis
         );
+        
+        // Дополнительное ограничение на случай большого количества данных
+        if (transformedData.length > 1500) {
+          transformedData = transformedData.slice(-1500);
+        }
         
         setCharts(prev => prev.map(chart => 
           chart.id === normalizedChartId 
@@ -220,8 +250,10 @@ useEffect(() => {
             : chart
         ));
       } else {
-        const transformedData = transformData(data.databases);
-        setMeasurements(transformedData);
+        let transformedData = transformData(data.databases);
+        if (transformedData.length > 1500) {
+          transformedData = transformedData.slice(-1500);
+        }
         setCharts(prev => prev.map(chart => ({
           ...chart,
           data: transformedData
@@ -236,84 +268,80 @@ useEffect(() => {
 
   // Добавление нового графика
   const addChartWithType = useCallback(() => {
-  const newChart = {
-    id: Date.now(),
-    data: [...measurements],
-    type: selectedChartType,
-    orderIndex: charts.length + 1,
-    title: `График #${charts.length + 1}`,
-    selectedTable: '',
-    xAxis: '',
-    yAxis: '',
-    color: '#133592',
-    refreshInterval: 1000,
-    showGrid: true
-  };
-  setCharts(prev => [...prev, newChart]);
-  setShowModal(false);
-}, [measurements, selectedChartType, charts.length]);
+    const newChart = {
+      id: Date.now(),
+      data: [], // Пустой массив вместо measurements
+      type: selectedChartType,
+      orderIndex: charts.length + 1,
+      title: `График #${charts.length + 1}`,
+      selectedTable: '',
+      xAxis: '',
+      yAxis: '',
+      color: '#133592',
+      refreshInterval: 100,
+      showGrid: true
+    };
+    setCharts(prev => [...prev, newChart]);
+    setShowModal(false);
+  }, [selectedChartType, charts.length]);
 
   const openModal = useCallback(() => {
     if (charts.length >= MAX_CHARTS) {
       console.log("Достигнуто максимальное количество графиков!");
       return;
     }
-    if (measurements.length > 0) {
-      setShowModal(true);
-    }
-  }, [charts.length, measurements.length]);
+    setShowModal(true);
+  }, [charts.length]);
 
   const closeModal = useCallback(() => {
     setShowModal(false);
   }, []);
 
   const resetChartSettings = useCallback((chartId) => {
-  const normalizedId = normalizeId(chartId);
-  
-  // Сбрасываем настройки графика к значениям по умолчанию
-  setCharts(prev => prev.map(chart => 
-    chart.id === normalizedId 
-      ? {
-          ...chart,
-          selectedTable: '',
-          xAxis: '',
-          yAxis: '',
-          color: '#133592',
-          refreshInterval: 1000,
-          showGrid: true,
-          data: [] // Сбрасываем данные к общим измерениям
-        }
-      : chart
-  ));
-}, [measurements]);
+    const normalizedId = normalizeId(chartId);
+    
+    // Сбрасываем настройки графика к значениям по умолчанию
+    setCharts(prev => prev.map(chart => 
+      chart.id === normalizedId 
+        ? {
+            ...chart,
+            selectedTable: '',
+            xAxis: '',
+            yAxis: '',
+            color: '#133592',
+            refreshInterval: 1000,
+            showGrid: true,
+            data: [] // Пустой массив данных
+          }
+        : chart
+    ));
+  }, []);
 
-// Затем обновите removeChart
-const removeChart = useCallback((chartId) => {
-  const normalizedId = normalizeId(chartId);
-  
-  // Сначала сбрасываем настройки
-  resetChartSettings(normalizedId);
-  
-  // Останавливаем обновление при удалении
-  setUpdatingCharts(prev => {
-    const newSet = new Set(prev);
-    newSet.delete(normalizedId);
-    return newSet;
-  });
-  
-  setCharts(prev => {
-    const filteredCharts = prev.filter(chart => chart.id !== normalizedId);
-    return filteredCharts.map((chart, index) => ({
-      ...chart,
-      orderIndex: index + 1
-    }));
-  });
-  
-  if (normalizeId(selectedChartId) === normalizedId) {
-    setSelectedChartId(null);
-  }
-}, [selectedChartId, resetChartSettings]);
-
+  const removeChart = useCallback((chartId) => {
+    const normalizedId = normalizeId(chartId);
+    
+    // Сначала сбрасываем настройки
+    resetChartSettings(normalizedId);
+    
+    // Останавливаем обновление при удалении
+    setUpdatingCharts(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(normalizedId);
+      return newSet;
+    });
+    
+    setCharts(prev => {
+      const filteredCharts = prev.filter(chart => chart.id !== normalizedId);
+      return filteredCharts.map((chart, index) => ({
+        ...chart,
+        orderIndex: index + 1
+      }));
+    });
+    
+    if (normalizeId(selectedChartId) === normalizedId) {
+      setSelectedChartId(null);
+    }
+  }, [selectedChartId, resetChartSettings]);
 
   // Drag & Drop функции
   const handleDragStart = useCallback((e, chartId) => {
@@ -381,7 +409,6 @@ const removeChart = useCallback((chartId) => {
           onDrop={handleDrop}
           draggedChart={draggedChart}
           onRemoveChart={removeChart}
-          measurements={measurements}
           onUpdateToggle={handleChartUpdateToggle}
           updatingCharts={updatingCharts}
           onChartTitleChange={handleChartTitleChange}
@@ -410,7 +437,7 @@ const removeChart = useCallback((chartId) => {
         <button 
           onClick={openModal} 
           className='btn btn-success add-chart-btn'
-          disabled={charts.length >= MAX_CHARTS || measurements.length === 0}
+          disabled={charts.length >= MAX_CHARTS}
           title="Добавить новый график"
         >
           <i className="bi bi-plus-lg"></i>
