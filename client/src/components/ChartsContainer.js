@@ -14,7 +14,8 @@ const ChartsContainer = ({
   updatingCharts,
   onChartTitleChange,
   setEditTitleValue,
-  editTitleValue
+  editTitleValue,
+  chartSeries = {}
 }) => {
   const [editingChartId, setEditingChartId] = useState(null);
 
@@ -59,7 +60,8 @@ const ChartsContainer = ({
           {charts.map((chart, index) => {
             const isUpdating = updatingCharts.has(chart.id);
             const isEditing = editingChartId === chart.id;
-            const displayTitle = `График #${index + 1}`;
+            const displayTitle = chart.title || `График #${index + 1}`;
+            const chartSeriesData = chartSeries[chart.id] || [];
 
             return (
               <div 
@@ -117,6 +119,11 @@ const ChartsContainer = ({
                       >
                         <i className="bi bi-grip-horizontal me-2"></i>
                         {displayTitle} - {chart.type === 'linear' ? 'Линейный' : 'Векторный'}
+                        {chartSeriesData.length > 0 && (
+                          <span className="badge bg-info ms-2">
+                            {chartSeriesData.length} серий
+                          </span>
+                        )}
                       </span>
                     )}
                     
@@ -153,6 +160,7 @@ const ChartsContainer = ({
                     <Chart 
                       key={`chart-content-${chart.id}-${index}`}
                       data={chart.data || []}
+                      series={chartSeriesData} // Передаем серии для этого графика
                       type={chart.type}
                       isUpdating={isUpdating}
                       colors={{
@@ -165,6 +173,7 @@ const ChartsContainer = ({
                     />
                     {/* Отладочная информация */}
                     {console.log(`Chart ${chart.id} data:`, chart.data || measurements)}
+                    {console.log(`Chart ${chart.id} series:`, chartSeriesData)}
                     {console.log(`Chart ${chart.id} color:`, chart.color)}
                   </div>
                   
@@ -172,6 +181,9 @@ const ChartsContainer = ({
                     <small className="text-muted">
                       {(chart.data || []).length} точек данных • 
                       {chart.type === 'linear' ? ' Временной ряд' : ' Векторная диаграмма'}
+                      {chartSeriesData.length > 0 && (
+                        <span className="text-info ms-2">• {chartSeriesData.length} доп. серий</span>
+                      )}
                       {isUpdating && <span className="text-warning ms-2">🔄 Обновляется...</span>}
                       {(chart.data || []).length >= 1500 && (
                         <span className="text-info ms-2">ⓘ Лимит: 1500 точек</span>

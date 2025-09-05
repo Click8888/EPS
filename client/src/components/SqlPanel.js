@@ -36,6 +36,125 @@ const ErrorAlert = ({ error, onClose }) => {
   );
 };
 
+const SeriesSettings = ({ series, chart, onUpdate, onRemove, onExecute, tableNames, columnsByTable }) => {
+  const availableColumns = chart.selectedTable ? 
+    columnsByTable[chart.selectedTable] || [] : [];
+
+  const generateQuery = () => {
+    if (!chart.selectedTable || !series.xAxis || !series.yAxis) {
+      alert('Выберите таблицу и обе оси для генерации запроса');
+      return;
+    }
+
+    return `SELECT ${series.xAxis}, ${series.yAxis} FROM ${chart.selectedTable}`;
+  };
+
+  const handleExecuteQuery = () => {
+    const query = generateQuery();
+    if (query) {
+      onExecute(query, chart.id, series.id);
+    }
+  };
+
+  return (
+    <div className="series-settings p-3 mb-3 bg-dark rounded" style={{ border: '1px solid #555' }}>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <input
+          type="text"
+          className="form-control form-control-sm bg-secondary text-white border-dark me-2"
+          value={series.name}
+          onChange={(e) => onUpdate({ name: e.target.value })}
+          placeholder="Название серии"
+          style={{ maxWidth: '200px' }}
+        />
+        <div className="btn-group btn-group-sm">
+          <button
+            className="btn btn-outline-primary"
+            onClick={handleExecuteQuery}
+            title="Выполнить запрос для этой серии"
+            disabled={!chart.selectedTable || !series.xAxis || !series.yAxis}
+          >
+            <i className="bi bi-play-fill"></i>
+          </button>
+          <button
+            className="btn btn-outline-danger"
+            onClick={onRemove}
+            title="Удалить серию"
+          >
+            <i className="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+
+      <div className="row g-2">
+        <div className="col-md-4">
+          <label className="form-label small text-white">Ось X</label>
+          <select
+            className="form-select form-select-sm bg-secondary text-light border-dark"
+            value={series.xAxis || ''}
+            onChange={(e) => onUpdate({ xAxis: e.target.value })}
+            disabled={!chart.selectedTable}
+          >
+            <option value="">Выберите столбец</option>
+            {availableColumns.map(column => (
+              <option key={column} value={column}>
+                {column}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="col-md-4">
+          <label className="form-label small text-white">Ось Y</label>
+          <select
+            className="form-select form-select-sm bg-secondary text-light border-dark"
+            value={series.yAxis || ''}
+            onChange={(e) => onUpdate({ yAxis: e.target.value })}
+            disabled={!chart.selectedTable}
+          >
+            <option value="">Выберите столбец</option>
+            {availableColumns.map(column => (
+              <option key={column} value={column}>
+                {column}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="col-md-4">
+          <label className="form-label small text-white">Цвет</label>
+          <div className="d-flex align-items-center">
+            <input
+              type="color"
+              className="form-control form-control-color form-control-sm bg-secondary border-dark me-2"
+              value={series.color || '#ff0000'}
+              onChange={(e) => onUpdate({ color: e.target.value })}
+              style={{ width: '30px', height: '30px' }}
+            />
+            <select
+              className="form-select form-select-sm bg-secondary text-light border-dark"
+              value={series.style || 'solid'}
+              onChange={(e) => onUpdate({ style: e.target.value })}
+            >
+              <option value="solid">Сплошная</option>
+              <option value="dashed">Пунктир</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {series.xAxis && series.yAxis && (
+        <div className="mt-2 p-2 bg-secondary rounded">
+          <small className="text-white">SQL запрос:</small>
+          <code className="d-block text-info small">
+            SELECT {series.xAxis}, {series.yAxis} FROM {chart.selectedTable}
+          </code>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Компонент для настройки параметров графика
 const ChartSettings = ({ 
   chart, 
@@ -45,7 +164,13 @@ const ChartSettings = ({
   onDelete, 
   editTitleValue,
   tableNames,
-  columnsByTable
+  columnsByTable,
+  chartSeries = {}, // Новый пропс для дополнительных серий
+  onAddSeries = () => {}, // Функция добавления серии
+  onRemoveSeries = () => {}, // Функция удаления серии
+  onUpdateSeries = () => {}, // Функция обновления серии
+  onExecuteQuery = () => {} // Функция выполнения запроса
+  
 }) => {
   // Получаем доступные колонки для выбранной таблицы
   const availableColumns = chart.selectedTable ? 
@@ -79,7 +204,7 @@ const ChartSettings = ({
     };
     onSave(updatedChart);
   };
-  console.log("chart.refreshInterval", chart.refreshInterval)
+
   const generateQuery = () => {
     if (!chart.selectedTable || !chart.xAxis || !chart.yAxis) {
       alert('Выберите таблицу и обе оси для генерации запроса');
@@ -95,7 +220,185 @@ const ChartSettings = ({
       onExecute(query, chart.id);
     }
   };
-  
+
+  // Компонент для настройки отдельной серии
+  const SeriesSettings = ({ seriesItem }) => {
+    const handleSeriesFieldChange = (field, value) => {
+      onUpdateSeries(chart.id, seriesItem.id, { [field]: value });
+    };
+
+    const handleExecuteSeriesQuery = () => {
+      if (!chart.selectedTable || !seriesItem.xAxis || !seriesItem.yAxis) {
+        alert('Выберите таблицу и обе оси для серии');
+        return;
+      }
+
+      const query = `SELECT ${seriesItem.xAxis}, ${seriesItem.yAxis} FROM ${chart.selectedTable}`;
+      onExecuteQuery(query, chart.id, seriesItem.id);
+    };
+
+    const handleRemoveSeries = () => {
+      if (window.confirm('Удалить эту серию?')) {
+        onRemoveSeries(chart.id, seriesItem.id);
+      }
+    };
+
+    const handleToggleSeries = () => {
+      onUpdateSeries(chart.id, seriesItem.id, { enabled: !seriesItem.enabled });
+    };
+
+    return (
+      <div className="series-settings p-3 mb-3 bg-dark rounded" style={{ border: '1px solid #555' }}>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <input
+            type="text"
+            className="form-control form-control-sm bg-secondary text-white border-dark me-2"
+            value={seriesItem.name || `Серия`}
+            onChange={(e) => handleSeriesFieldChange('name', e.target.value)}
+            placeholder="Название серии"
+            style={{ maxWidth: '200px' }}
+          />
+          <div className="btn-group btn-group-sm">
+            <button
+              className={`btn ${seriesItem.enabled ? 'btn-outline-warning' : 'btn-outline-success'}`}
+              onClick={handleToggleSeries}
+              title={seriesItem.enabled ? "Отключить серию" : "Включить серию"}
+            >
+              <i className={`bi bi-eye${seriesItem.enabled ? '' : '-slash'}`}></i>
+            </button>
+            <button
+              className="btn btn-outline-primary"
+              onClick={handleExecuteSeriesQuery}
+              title="Выполнить запрос для этой серии"
+              disabled={!chart.selectedTable || !seriesItem.xAxis || !seriesItem.yAxis}
+            >
+              <i className="bi bi-play-fill"></i>
+            </button>
+            <button
+              className="btn btn-outline-danger"
+              onClick={handleRemoveSeries}
+              title="Удалить серию"
+            >
+              <i className="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+
+        <div className="row g-2">
+          <div className="col-md-4">
+            <label className="form-label small text-white">Ось X</label>
+            <select
+              className="form-select form-select-sm bg-secondary text-light border-dark"
+              value={seriesItem.xAxis || ''}
+              onChange={(e) => handleSeriesFieldChange('xAxis', e.target.value)}
+              disabled={!chart.selectedTable}
+            >
+              <option value="">Выберите столбец</option>
+              {availableColumns.map(column => (
+                <option key={column} value={column}>
+                  {column}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="col-md-4">
+            <label className="form-label small text-white">Ось Y</label>
+            <select
+              className="form-select form-select-sm bg-secondary text-light border-dark"
+              value={seriesItem.yAxis || ''}
+              onChange={(e) => handleSeriesFieldChange('yAxis', e.target.value)}
+              disabled={!chart.selectedTable}
+            >
+              <option value="">Выберите столбец</option>
+              {availableColumns.map(column => (
+                <option key={column} value={column}>
+                  {column}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="col-md-4">
+            <label className="form-label small text-white">Стиль линии</label>
+            <div className="d-flex align-items-center">
+              <input
+                type="color"
+                className="form-control form-control-color form-control-sm bg-secondary border-dark me-2"
+                value={seriesItem.color || '#ff0000'}
+                onChange={(e) => handleSeriesFieldChange('color', e.target.value)}
+                style={{ width: '30px', height: '30px' }}
+              />
+              <select
+                className="form-select form-select-sm bg-secondary text-light border-dark me-2"
+                value={seriesItem.style || 'solid'}
+                onChange={(e) => handleSeriesFieldChange('style', e.target.value)}
+                style={{ flex: 1 }}
+              >
+                <option value="solid">Сплошная</option>
+                <option value="dashed">Пунктир</option>
+              </select>
+              <select
+                className="form-select form-select-sm bg-secondary text-light border-dark"
+                value={seriesItem.width || 2}
+                onChange={(e) => handleSeriesFieldChange('width', parseInt(e.target.value))}
+                style={{ width: '80px' }}
+              >
+                <option value="1">Тонкая</option>
+                <option value="2">Средняя</option>
+                <option value="3">Толстая</option>
+                <option value="4">Очень толстая</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {seriesItem.xAxis && seriesItem.yAxis && (
+          <div className="mt-2 p-2 bg-secondary rounded">
+            <small className="text-white">SQL запрос для серии:</small>
+            <code className="d-block text-info small">
+              SELECT {seriesItem.xAxis}, {seriesItem.yAxis} FROM {chart.selectedTable}
+            </code>
+          </div>
+        )}
+
+        {seriesItem.data && seriesItem.data.length > 0 && (
+          <div className="mt-2">
+            <small className="text-success">
+              <i className="bi bi-check-circle me-1"></i>
+              Данные загружены: {seriesItem.data.length} точек
+            </small>
+          </div>
+        )}
+
+        {!seriesItem.enabled && (
+          <div className="mt-2 text-warning">
+            <small>
+              <i className="bi bi-eye-slash me-1"></i>
+              Серия отключена
+            </small>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Получаем серии для текущего графика
+  const series = chartSeries[chart.id] || [];
+
+  const handleAddSeries = () => {
+    onAddSeries(chart.id, {
+      name: `Серия ${series.length + 1}`,
+      xAxis: chart.xAxis || '', // Наследуем настройки от основного графика
+      yAxis: chart.yAxis || '', // Наследуем настройки от основного графика
+      color: `hsl(${Math.random() * 360}, 70%, 60%)`, // Случайный цвет
+      width: 2,
+      style: 'solid',
+      enabled: true,
+      data: []
+    });
+  };
+
   return (
     <div className="chart-settings-item p-3 mb-3 rounded bg-dark" style={{ border: '1px solid #444' }}>
       <div className="d-flex justify-content-between align-items-start mb-3">
@@ -136,7 +439,7 @@ const ChartSettings = ({
       <div className="row">
         <div className="col-md-6">
           <div className='text-center text-white mb-2'>
-            <h6>Данные</h6>
+            <h6>Данные графика</h6>
           </div>
           
           {/* Выбор таблицы */}
@@ -198,7 +501,6 @@ const ChartSettings = ({
             <h6>Внешний вид</h6>
           </div>
           
-              
           <div className="mb-2">
             <label className="form-label small text-white">Интервал обновления (мс)</label>
             <input
@@ -227,15 +529,57 @@ const ChartSettings = ({
         </div>
       </div>
 
-      {/* Сгенерированный SQL запрос */}
+      {/* Сгенерированный SQL запрос для основного графика */}
       {chart.selectedTable && chart.xAxis && chart.yAxis && (
         <div className="mt-3 p-2 bg-secondary rounded">
-          <small className="text-white">SQL запрос:</small>
+          <small className="text-white">SQL запрос для основного графика:</small>
           <code className="d-block text-info small mt-1">
             SELECT {chart.xAxis}, {chart.yAxis} FROM {chart.selectedTable}
           </code>
         </div>
       )}
+
+      {/* Секция дополнительных серий */}
+      <div className="mt-4 pt-3 border-top border-secondary">
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h6 className="text-white mb-0">
+            Дополнительные серии данных
+            <span className="badge bg-primary ms-2">{series.length}</span>
+          </h6>
+          <button
+            className="btn btn-sm btn-outline-primary"
+            onClick={handleAddSeries}
+            title="Добавить новую серию данных"
+            disabled={!chart.selectedTable}
+          >
+            <i className="bi bi-plus-lg me-1"></i>
+            Добавить серию
+          </button>
+        </div>
+
+        {series.length === 0 ? (
+          <div className="text-muted small p-3 text-center bg-secondary rounded">
+            <i className="bi bi-info-circle me-1"></i>
+            Нет добавленных серий. Нажмите "Добавить серию" чтобы создать дополнительную серию данных.
+          </div>
+        ) : (
+          <div className="series-list">
+            {series.map(seriesItem => (
+              <SeriesSettings
+                key={seriesItem.id}
+                seriesItem={seriesItem}
+              />
+            ))}
+          </div>
+        )}
+
+        {series.length > 0 && (
+          <div className="mt-2 text-info small">
+            <i className="bi bi-lightbulb me-1"></i>
+            Каждая серия может использовать разные столбцы из выбранной таблицы
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -253,7 +597,11 @@ const SqlPanel = ({
   editTitleValue,
   tableNames,
   columnsByTable,
-  setCharts
+  setCharts,
+  chartSeries = {},
+  onAddSeries = () => console.log('addSeries not provided'),
+  onRemoveSeries = () => console.log('removeSeries not provided'),
+  onUpdateSeries = () => console.log('updateSeries not provided')
 }) => {
 
   const [queryHistory, setQueryHistory] = useState([]);
@@ -379,6 +727,11 @@ const SqlPanel = ({
                     editTitleValue={editTitleValue}
                     tableNames={tableNames}
                     columnsByTable={columnsByTable}
+                    chartSeries={chartSeries}
+                    onAddSeries={onAddSeries}
+                    onRemoveSeries={onRemoveSeries} // Добавьте эту строку
+                    onUpdateSeries={onUpdateSeries} // Добавьте эту строку
+                    onExecuteQuery={onExecuteQuery} // Добавьте эту строку
                   />
                 ))}
               </div>

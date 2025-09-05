@@ -1,9 +1,10 @@
-import { AreaSeries, createChart, ColorType } from 'lightweight-charts';
+import { AreaSeries, LineSeries, createChart, ColorType } from 'lightweight-charts';
 import React, { useEffect, useRef, useState } from 'react';
 
 export const Chart = props => {
     const {
         data,
+        series = [], // Новый пропс для дополнительных серий
         type,
         isUpdating,
         colors: {
@@ -17,15 +18,14 @@ export const Chart = props => {
 
     const chartContainerRef = useRef();
     const chartRef = useRef(null);
-    const seriesRef = useRef(null);
+    const seriesMapRef = useRef(new Map()); // Для хранения всех серий
     const [resizeObserver, setResizeObserver] = useState(null);
     const lastDataRef = useRef([]);
 
-    // Функция для преобразования 8-значного HEX в 6-значный (убираем альфа-канал)
+    // Функция для преобразования 8-значного HEX в 6-значный
     const normalizeColor = (color) => {
         if (!color) return '#133592';
         
-        // Если цвет в формате #RRGGBBAA, убираем альфа-канал
         if (color.length === 9 && color.startsWith('#')) {
             return color.substring(0, 7);
         }
@@ -33,7 +33,7 @@ export const Chart = props => {
         return color;
     };
 
-    // Функция для преобразования времени HH:MM:SS.mmm в секунды с миллисекундами
+    // Функция для преобразования времени HH:MM:SS.mmm в секунды
     const timeToSeconds = (timeString) => {
         if (!timeString) return 0;
         
@@ -58,145 +58,256 @@ export const Chart = props => {
 
     // Функция для обработки и валидации данных
     const processChartData = (rawData) => {
-  if (!rawData || rawData.length === 0) return [];
+        if (!rawData || rawData.length === 0) return [];
 
-  // Удаляем дубликаты и сортируем по времени
-  const uniqueDataMap = new Map();
-  
-  rawData.forEach(item => {
-    if (item.time && item.value !== undefined) {
-      const timeInSeconds = timeToSeconds(item.time);
-      uniqueDataMap.set(timeInSeconds, {
-        time: timeInSeconds,
-        value: parseFloat(item.value) || 0
-      });
-    }
-  });
+        const uniqueDataMap = new Map();
+        
+        rawData.forEach(item => {
+            if (item.time && item.value !== undefined) {
+                const timeInSeconds = timeToSeconds(item.time);
+                uniqueDataMap.set(timeInSeconds, {
+                    time: timeInSeconds,
+                    value: parseFloat(item.value) || 0
+                });
+            }
+        });
 
-  let uniqueData = Array.from(uniqueDataMap.values());
-  uniqueData.sort((a, b) => a.time - b.time);
+        let uniqueData = Array.from(uniqueDataMap.values());
+        uniqueData.sort((a, b) => a.time - b.time);
 
-  // Ограничиваем количество точек до 1500
-  if (uniqueData.length > 1500) {
-    uniqueData = uniqueData.slice(-1500); // Берем последние 1500 точек
-  }
+        if (uniqueData.length > 1500) {
+            uniqueData = uniqueData.slice(-1500);
+        }
 
-  return uniqueData;
-};
+        return uniqueData;
+    };
 
     // Эффект для создания графика
     useEffect(() => {
-        if (!chartContainerRef.current) return;
+  if (!chartContainerRef.current) return;
 
-        const handleResize = () => {
-            if (chartRef.current && chartContainerRef.current) {
-                chartRef.current.applyOptions({ 
-                    width: chartContainerRef.current.clientWidth,
-                    height: chartContainerRef.current.clientHeight
-                });
-            }
-        };
+  const handleResize = () => {
+    if (chartRef.current && chartContainerRef.current) {
+      chartRef.current.applyOptions({ 
+        width: chartContainerRef.current.clientWidth,
+        height: chartContainerRef.current.clientHeight
+      });
+    }
+  };
 
-        const normalizedLineColor = normalizeColor(lineColor);
-        const normalizedAreaTopColor = normalizeColor(areaTopColor);
-        const normalizedAreaBottomColor = normalizeColor(areaBottomColor);
+  const chart = createChart(chartContainerRef.current, {
+    layout: {
+      background: { type: ColorType.Solid, color: backgroundColor },
+      textColor,
+    },
+    width: chartContainerRef.current.clientWidth,
+    height: 300,
+    timeScale: {
+      timeVisible: true,
+      secondsVisible: true,
+      tickMarkFormatter: (time) => {
+        return secondsToTime(time);
+      }
+    },
+    grid: {
+      vertLines: { color: '#444' },
+      horzLines: { color: '#444' },
+    },
+    autoSize: true,
+    handleScroll: {
+      mouseWheel: true,
+      pressedMouseMove: true,
+    },
+    handleScale: {
+      axisPressedMouseMove: true,
+      mouseWheel: true,
+      pinch: true,
+    },
+  });
 
-        const chart = createChart(chartContainerRef.current, {
-            layout: {
-                background: { type: ColorType.Solid, color: backgroundColor },
-                textColor,
-            },
-            width: chartContainerRef.current.clientWidth,
-            height: 300,
-            timeScale: {
-                timeVisible: true,
-                secondsVisible: true,
-                tickMarkFormatter: (time) => {
-                    return secondsToTime(time);
-                }
-            },
-            grid: {
-                vertLines: { color: '#444' },
-                horzLines: { color: '#444' },
-            },
-            autoSize: true,
-            handleScroll: {
-                mouseWheel: true,
-                pressedMouseMove: true,
-            },
-            handleScale: {
-                axisPressedMouseMove: true,
-                mouseWheel: true,
-                pinch: true,
-            },
-        });
+  chartRef.current = chart;
+  seriesMapRef.current = new Map();
 
-        const newSeries = chart.addSeries(AreaSeries, { 
-            lineColor: normalizedLineColor, 
-            topColor: normalizedAreaTopColor, 
-            bottomColor: normalizedAreaBottomColor 
-        });
+  // ResizeObserver
+  const observer = new ResizeObserver(entries => {
+    for (let entry of entries) {
+      if (entry.target === chartContainerRef.current) {
+        handleResize();
+      }
+    }
+  });
 
-        chartRef.current = chart;
-        seriesRef.current = newSeries;
+  observer.observe(chartContainerRef.current);
+  setResizeObserver(observer);
 
-        // ResizeObserver
-        const observer = new ResizeObserver(entries => {
-            for (let entry of entries) {
-                if (entry.target === chartContainerRef.current) {
-                    handleResize();
-                }
-            }
-        });
+  return () => {
+    observer.disconnect();
+    chart.remove();
+  };
+}, [backgroundColor, textColor]);
 
-        observer.observe(chartContainerRef.current);
-        setResizeObserver(observer);
-
-        return () => {
-            observer.disconnect();
-            chart.remove();
-        };
-    }, [backgroundColor, textColor, lineColor, areaTopColor, areaBottomColor]);
-
-    // Эффект для обновления данных
+    // Эффект для управления всеми сериями
     useEffect(() => {
-        if (seriesRef.current && data && data.length > 0) {
-            const processedData = processChartData(data);
+  if (!chartRef.current) return;
+
+  const chart = chartRef.current;
+  const seriesMap = seriesMapRef.current;
+
+  // Создаем/обновляем основную серию (LineSeries вместо AreaSeries)
+  if (!seriesMap.has('main')) {
+    const normalizedLineColor = normalizeColor(lineColor);
+
+    const mainSeries = chart.addSeries(LineSeries, { 
+      color: normalizedLineColor,
+      lineWidth: 2,
+      title: 'Основная серия',
+      priceLineVisible: false
+    });
+    seriesMap.set('main', mainSeries);
+  }
+
+        // Обновляем настройки основной серии
+         const mainSeries = seriesMap.get('main');
+  if (mainSeries) {
+    const normalizedLineColor = normalizeColor(lineColor);
+    
+    mainSeries.applyOptions({
+      color: normalizedLineColor,
+      lineWidth: 2
+    });
+  }
+
+        // Удаляем дополнительные серии, которых больше нет
+        Array.from(seriesMap.keys()).forEach(key => {
+            if (key !== 'main' && !series.some(s => `series-${s.id}` === key)) {
+                const seriesToRemove = seriesMap.get(key);
+                if (seriesToRemove) {
+                    chart.removeSeries(seriesToRemove);
+                }
+                seriesMap.delete(key);
+            }
+        });
+
+        // Создаем/обновляем дополнительные серии (LineSeries)
+        series.forEach(seriesItem => {
+            const seriesKey = `series-${seriesItem.id}`;
             
-            if (processedData.length > 0) {
-                console.log('Updating chart with data:', processedData);
+            if (!seriesMap.has(seriesKey) && seriesItem.enabled !== false) {
+                // Создаем новую серию
+                try {
+                    const newSeries = chart.addSeries(LineSeries, {
+                        color: normalizeColor(seriesItem.color || '#ff0000'),
+                        lineWidth: seriesItem.width || 2,
+                        lineStyle: seriesItem.style === 'dashed' ? 1 : 0,
+                        title: seriesItem.name || `Серия ${seriesItem.id}`,
+                        priceLineVisible: false
+                    });
+                    
+                    if (seriesItem.data && seriesItem.data.length > 0) {
+                        const processedData = processChartData(seriesItem.data);
+                        if (processedData.length > 0) {
+                            newSeries.setData(processedData);
+                        }
+                    }
+                    
+                    seriesMap.set(seriesKey, newSeries);
+                } catch (error) {
+                    console.error('Ошибка при создании серии:', error);
+                }
+            } else if (seriesMap.has(seriesKey)) {
+                // Обновляем существующую серию
+                const existingSeries = seriesMap.get(seriesKey);
                 
-                // Всегда обновляем данные, не сравниваем с предыдущими
-                seriesRef.current.setData(processedData);
-                lastDataRef.current = processedData;
-                
-                if (chartRef.current) {
-                    chartRef.current.timeScale().fitContent();
+                if (seriesItem.enabled === false) {
+                    // Удаляем отключенную серию
+                    try {
+                        chart.removeSeries(existingSeries);
+                        seriesMap.delete(seriesKey);
+                    } catch (error) {
+                        console.error('Ошибка при удалении серии:', error);
+                    }
+                } else if (existingSeries) {
+                    // Обновляем настройки серии
+                    try {
+                        existingSeries.applyOptions({
+                            color: normalizeColor(seriesItem.color || '#ff0000'),
+                            lineWidth: seriesItem.width || 2,
+                            lineStyle: seriesItem.style === 'dashed' ? 1 : 0,
+                            title: seriesItem.name || `Серия ${seriesItem.id}`
+                        });
+                        
+                        // Обновляем данные серии
+                        if (seriesItem.data && seriesItem.data.length > 0) {
+                            const processedData = processChartData(seriesItem.data);
+                            if (processedData.length > 0) {
+                                existingSeries.setData(processedData);
+                            }
+                        } else {
+                            existingSeries.setData([]);
+                        }
+                    } catch (error) {
+                        console.error('Ошибка при обновлении серии:', error);
+                    }
+                }
+            }
+        });
+
+        // Автомасштабирование
+        try {
+            if (chartRef.current) {
+                chartRef.current.timeScale().fitContent();
+            }
+        } catch (error) {
+            console.error('Ошибка при автомасштабировании:', error);
+        }
+
+    }, [series, lineColor]);
+
+    // Эффект для обновления данных основной серии
+    useEffect(() => {
+        const mainSeries = seriesMapRef.current.get('main');
+        if (mainSeries) {
+            if (data && data.length > 0) {
+                const processedData = processChartData(data);
+                if (processedData.length > 0) {
+                    try {
+                        mainSeries.setData(processedData);
+                        lastDataRef.current = processedData;
+                        
+                        if (chartRef.current) {
+                            chartRef.current.timeScale().fitContent();
+                        }
+                    } catch (error) {
+                        console.error('Ошибка при обновлении данных основной серии:', error);
+                    }
+                } else {
+                    mainSeries.setData([]);
                 }
             } else {
-                console.log('No valid data to display');
-                seriesRef.current.setData([]);
+                mainSeries.setData([]);
             }
-        } else if (seriesRef.current && (!data || data.length === 0)) {
-            console.log('Clearing chart data');
-            seriesRef.current.setData([]);
         }
     }, [data, isUpdating]);
 
-    // Эффект для обновления цвета при изменении
+    // Эффект для обработки изменений размеров
     useEffect(() => {
-        if (seriesRef.current) {
-            const normalizedLineColor = normalizeColor(lineColor);
-            const normalizedAreaTopColor = normalizeColor(areaTopColor);
-            const normalizedAreaBottomColor = normalizeColor(areaBottomColor);
-            
-            seriesRef.current.applyOptions({
-                lineColor: normalizedLineColor,
-                topColor: normalizedAreaTopColor,
-                bottomColor: normalizedAreaBottomColor
-            });
+        const handleResize = () => {
+            if (chartRef.current && chartContainerRef.current) {
+                try {
+                    chartRef.current.applyOptions({ 
+                        width: chartContainerRef.current.clientWidth,
+                        height: chartContainerRef.current.clientHeight
+                    });
+                } catch (error) {
+                    console.error('Ошибка при изменении размера:', error);
+                }
+            }
+        };
+
+        if (resizeObserver && chartContainerRef.current) {
+            handleResize();
         }
-    }, [lineColor, areaTopColor, areaBottomColor]);
+    }, [resizeObserver]);
 
     return (
         <div
@@ -208,19 +319,21 @@ export const Chart = props => {
                 position: 'relative'
             }}
         >
-            {(!data || data.length === 0) && (
+            {(!data || data.length === 0) && series.every(s => !s.data || s.data.length === 0) && (
                 <div style={{
                     position: 'absolute',
                     top: '50%',
                     left: '50%',
                     transform: 'translate(-50%, -50%)',
                     color: '#888',
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    zIndex: 10
                 }}>
                     <i className="bi bi-bar-chart" style={{ fontSize: '2rem', display: 'block', marginBottom: '10px' }}></i>
                     <span>Нет данных для отображения</span>
                 </div>
             )}
+            
         </div>
     );
 };

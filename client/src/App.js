@@ -39,7 +39,72 @@ function App() {
   const [tablesMetadata, setTablesMetadata] = useState({});
   const [tableNames, setTableNames] = useState([]);
   const [columnsByTable, setColumnsByTable] = useState({});
+  const [chartSeries, setChartSeries] = useState({});
+
+const addSeriesToChart = (chartId, seriesConfig) => {
+  const normalizedId = normalizeId(chartId);
+  console.log('Adding series to chart:', normalizedId, seriesConfig);
   
+  const newSeries = {
+    ...seriesConfig,
+    id: Date.now() + Math.random() // Уникальный ID
+  };
+
+  setChartSeries(prev => {
+    const currentSeries = prev[normalizedId] || [];
+    const newState = {
+      ...prev,
+      [normalizedId]: [...currentSeries, newSeries]
+    };
+    console.log('New chartSeries state:', newState);
+    return newState;
+  });
+};
+
+const removeSeriesFromChart = (chartId, seriesId) => {
+  const normalizedId = normalizeId(chartId);
+  console.log('Removing series:', normalizedId, seriesId);
+  
+  setChartSeries(prev => {
+    const currentSeries = prev[normalizedId] || [];
+    const filteredSeries = currentSeries.filter(s => s.id !== seriesId);
+    
+    if (filteredSeries.length === 0) {
+      const newState = { ...prev };
+      delete newState[normalizedId];
+      console.log('After removal (empty):', newState);
+      return newState;
+    }
+    
+    const newState = {
+      ...prev,
+      [normalizedId]: filteredSeries
+    };
+    console.log('After removal:', newState);
+    return newState;
+  });
+};
+
+const updateSeriesInChart = (chartId, seriesId, updates) => {
+  const normalizedId = normalizeId(chartId);
+  console.log('Updating series:', normalizedId, seriesId, updates);
+  
+  setChartSeries(prev => {
+    const currentSeries = prev[normalizedId] || [];
+    const updatedSeries = currentSeries.map(s =>
+      s.id === seriesId ? { ...s, ...updates } : s
+    );
+    
+    const newState = {
+      ...prev,
+      [normalizedId]: updatedSeries
+    };
+    console.log('After update:', newState);
+    return newState;
+  });
+};
+
+
   const normalizeId = (id) => {
     if (id === null || id === undefined || id === '') return null;
     return typeof id === 'string' ? parseInt(id, 10) : id;
@@ -216,7 +281,7 @@ useEffect(() => {
   }, [updatingCharts, fetchNewData, UpdateInterval]);
 
   // Обработчик SQL запросов
-  const handleExecuteQuery = useCallback(async (query, chartId = null) => {
+const handleExecuteQuery = useCallback(async (query, chartId = null, seriesId = null) => {
   try {
     const response = await fetch(`${API_BASE_URL}/execute-query`, {
       method: 'POST',
@@ -231,7 +296,6 @@ useEffect(() => {
       const normalizedChartId = normalizeId(chartId);
       
       if (normalizedChartId) {
-        // Находим график чтобы получить настройки осей
         const chart = charts.find(c => c.id === normalizedChartId);
         let transformedData = transformData(
           data.databases, 
@@ -239,33 +303,30 @@ useEffect(() => {
           chart?.yAxis
         );
         
-        // Дополнительное ограничение на случай большого количества данных
         if (transformedData.length > 1500) {
           transformedData = transformedData.slice(-1500);
         }
         
-        setCharts(prev => prev.map(chart => 
-          chart.id === normalizedChartId 
-            ? { ...chart, data: transformedData }
-            : chart
-        ));
-      } else {
-        let transformedData = transformData(data.databases);
-        if (transformedData.length > 1500) {
-          transformedData = transformedData.slice(-1500);
+        if (seriesId) {
+          // Обновляем данные конкретной серии
+          console.log('Updating series data:', seriesId, transformedData.length, 'points');
+          updateSeriesInChart(normalizedChartId, seriesId, { data: transformedData });
+        } else {
+          // Обновляем основные данные графика
+          console.log('Updating main chart data:', transformedData.length, 'points');
+          setCharts(prev => prev.map(chart => 
+            chart.id === normalizedChartId 
+              ? { ...chart, data: transformedData }
+              : chart
+          ));
         }
-        setCharts(prev => prev.map(chart => ({
-          ...chart,
-          data: transformedData
-        })));
       }
     }
   } catch (error) {
     console.error("Ошибка при выполнении запроса:", error);
     throw error;
   }
-}, [charts]);
-
+}, [charts, updateSeriesInChart, setCharts]);
   // Добавление нового графика
   const addChartWithType = useCallback(() => {
     const newChart = {
@@ -414,6 +475,7 @@ useEffect(() => {
           onChartTitleChange={handleChartTitleChange}
           editTitleValue={editTitleValue}
           setEditTitleValue={setEditTitleValue}
+          chartSeries={chartSeries}
         />
       </div>
 
@@ -431,8 +493,12 @@ useEffect(() => {
         tableNames={tableNames}
         columnsByTable={columnsByTable}
         setCharts={setCharts}
+        chartSeries={chartSeries}
+        onAddSeries={addSeriesToChart}
+        onRemoveSeries={removeSeriesFromChart}
+        onUpdateSeries={updateSeriesInChart}
       />
-
+      
       <div className="charts-bottom-panel d-flex justify-content-center gap-2 p-2">
         <button 
           onClick={openModal} 
@@ -450,7 +516,9 @@ useEffect(() => {
         >
           <i className="bi bi-sliders"></i>
         </button>
+        
       </div>
+      
     </div>
   );
 }
