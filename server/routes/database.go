@@ -24,6 +24,7 @@ func GetDatabases(c *gin.Context) {
 		ID               uint
 		Measurement_time string
 		Current_value    float32
+		Voltage_value    float32 
 		Circuit_id       string
 		Sensor_model     string
 		Is_overload      bool
@@ -38,6 +39,7 @@ func GetDatabases(c *gin.Context) {
 			ID:               db.ID,
 			Measurement_time: db.Measurement_time,
 			Current_value:    db.Current_value,
+			Voltage_value:    db.Voltage_value,
 		})
 
 	}
@@ -94,6 +96,7 @@ func HandleSQLQuery(c *gin.Context) {
 			ID:               db.ID,
 			Measurement_time: db.Measurement_time,
 			Current_value:    db.Current_value,
+			Voltage_value:    db.Voltage_value,
 		})
 
 	}

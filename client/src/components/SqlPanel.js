@@ -169,7 +169,8 @@ const ChartSettings = ({
   onAddSeries = () => {}, // Функция добавления серии
   onRemoveSeries = () => {}, // Функция удаления серии
   onUpdateSeries = () => {}, // Функция обновления серии
-  onExecuteQuery = () => {} // Функция выполнения запроса
+  onExecuteQuery = () => {}, // Функция выполнения запроса
+  isUpdating
   
 }) => {
   // Получаем доступные колонки для выбранной таблицы
@@ -222,182 +223,175 @@ const ChartSettings = ({
   };
 
   // Компонент для настройки отдельной серии
-  const SeriesSettings = ({ seriesItem }) => {
-    const handleSeriesFieldChange = (field, value) => {
-      onUpdateSeries(chart.id, seriesItem.id, { [field]: value });
-    };
+const SeriesSettings = ({ series, chart, onUpdate, onRemove, onExecute, tableNames, columnsByTable }) => {
+  // Используем selectedTable из series, а не из chart
+  const availableColumns = series.selectedTable ? 
+    columnsByTable[series.selectedTable] || [] : [];
 
-    const handleExecuteSeriesQuery = () => {
-      if (!chart.selectedTable || !seriesItem.xAxis || !seriesItem.yAxis) {
-        alert('Выберите таблицу и обе оси для серии');
-        return;
-      }
+  const generateQuery = () => {
+    if (!series.selectedTable || !series.xAxis || !series.yAxis) {
+      alert('Выберите таблицу и обе оси для генерации запроса');
+      return;
+    }
 
-      const query = `SELECT ${seriesItem.xAxis}, ${seriesItem.yAxis} FROM ${chart.selectedTable}`;
-      onExecuteQuery(query, chart.id, seriesItem.id);
-    };
-
-    const handleRemoveSeries = () => {
-      if (window.confirm('Удалить эту серию?')) {
-        onRemoveSeries(chart.id, seriesItem.id);
-      }
-    };
-
-    const handleToggleSeries = () => {
-      onUpdateSeries(chart.id, seriesItem.id, { enabled: !seriesItem.enabled });
-    };
-
-    return (
-      <div className="series-settings p-3 mb-3 bg-dark rounded" style={{ border: '1px solid #555' }}>
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <input
-            type="text"
-            className="form-control form-control-sm bg-secondary text-white border-dark me-2"
-            value={seriesItem.name || `Серия`}
-            onChange={(e) => handleSeriesFieldChange('name', e.target.value)}
-            placeholder="Название серии"
-            style={{ maxWidth: '200px' }}
-          />
-          <div className="btn-group btn-group-sm">
-            <button
-              className={`btn ${seriesItem.enabled ? 'btn-outline-warning' : 'btn-outline-success'}`}
-              onClick={handleToggleSeries}
-              title={seriesItem.enabled ? "Отключить серию" : "Включить серию"}
-            >
-              <i className={`bi bi-eye${seriesItem.enabled ? '' : '-slash'}`}></i>
-            </button>
-            <button
-              className="btn btn-outline-primary"
-              onClick={handleExecuteSeriesQuery}
-              title="Выполнить запрос для этой серии"
-              disabled={!chart.selectedTable || !seriesItem.xAxis || !seriesItem.yAxis}
-            >
-              <i className="bi bi-play-fill"></i>
-            </button>
-            <button
-              className="btn btn-outline-danger"
-              onClick={handleRemoveSeries}
-              title="Удалить серию"
-            >
-              <i className="bi bi-trash"></i>
-            </button>
-          </div>
-        </div>
-
-        <div className="row g-2">
-          <div className="col-md-4">
-            <label className="form-label small text-white">Ось X</label>
-            <select
-              className="form-select form-select-sm bg-secondary text-light border-dark"
-              value={seriesItem.xAxis || ''}
-              onChange={(e) => handleSeriesFieldChange('xAxis', e.target.value)}
-              disabled={!chart.selectedTable}
-            >
-              <option value="">Выберите столбец</option>
-              {availableColumns.map(column => (
-                <option key={column} value={column}>
-                  {column}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="col-md-4">
-            <label className="form-label small text-white">Ось Y</label>
-            <select
-              className="form-select form-select-sm bg-secondary text-light border-dark"
-              value={seriesItem.yAxis || ''}
-              onChange={(e) => handleSeriesFieldChange('yAxis', e.target.value)}
-              disabled={!chart.selectedTable}
-            >
-              <option value="">Выберите столбец</option>
-              {availableColumns.map(column => (
-                <option key={column} value={column}>
-                  {column}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="col-md-4">
-            <label className="form-label small text-white">Стиль линии</label>
-            <div className="d-flex align-items-center">
-              <input
-                type="color"
-                className="form-control form-control-color form-control-sm bg-secondary border-dark me-2"
-                value={seriesItem.color || '#ff0000'}
-                onChange={(e) => handleSeriesFieldChange('color', e.target.value)}
-                style={{ width: '30px', height: '30px' }}
-              />
-              <select
-                className="form-select form-select-sm bg-secondary text-light border-dark me-2"
-                value={seriesItem.style || 'solid'}
-                onChange={(e) => handleSeriesFieldChange('style', e.target.value)}
-                style={{ flex: 1 }}
-              >
-                <option value="solid">Сплошная</option>
-                <option value="dashed">Пунктир</option>
-              </select>
-              <select
-                className="form-select form-select-sm bg-secondary text-light border-dark"
-                value={seriesItem.width || 2}
-                onChange={(e) => handleSeriesFieldChange('width', parseInt(e.target.value))}
-                style={{ width: '80px' }}
-              >
-                <option value="1">Тонкая</option>
-                <option value="2">Средняя</option>
-                <option value="3">Толстая</option>
-                <option value="4">Очень толстая</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {seriesItem.xAxis && seriesItem.yAxis && (
-          <div className="mt-2 p-2 bg-secondary rounded">
-            <small className="text-white">SQL запрос для серии:</small>
-            <code className="d-block text-info small">
-              SELECT {seriesItem.xAxis}, {seriesItem.yAxis} FROM {chart.selectedTable}
-            </code>
-          </div>
-        )}
-
-        {seriesItem.data && seriesItem.data.length > 0 && (
-          <div className="mt-2">
-            <small className="text-success">
-              <i className="bi bi-check-circle me-1"></i>
-              Данные загружены: {seriesItem.data.length} точек
-            </small>
-          </div>
-        )}
-
-        {!seriesItem.enabled && (
-          <div className="mt-2 text-warning">
-            <small>
-              <i className="bi bi-eye-slash me-1"></i>
-              Серия отключена
-            </small>
-          </div>
-        )}
-      </div>
-    );
+    return `SELECT ${series.xAxis}, ${series.yAxis} FROM ${series.selectedTable}`;
   };
+
+  const handleExecuteQuery = () => {
+    const query = generateQuery();
+    if (query) {
+      onExecute(query, chart.id, series.id);
+    }
+  };
+
+  const handleTableChange = (tableName) => {
+    onUpdate({ 
+      selectedTable: tableName,
+      // Сбрасываем оси при смене таблицы
+      xAxis: '',
+      yAxis: ''
+    });
+  };
+
+  return (
+    <div className="series-settings p-3 mb-3 bg-dark rounded" style={{ border: '1px solid #555' }}>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <input
+          type="text"
+          className="form-control form-control-sm bg-secondary text-white border-dark me-2"
+          value={series.name}
+          onChange={(e) => onUpdate({ name: e.target.value })}
+          placeholder="Название серии"
+          style={{ maxWidth: '200px' }}
+        />
+        <div className="btn-group btn-group-sm">
+          <button
+            className="btn btn-outline-primary"
+            onClick={handleExecuteQuery}
+            title="Выполнить запрос для этой серии"
+            disabled={!series.selectedTable || !series.xAxis || !series.yAxis}
+          >
+            <i className="bi bi-play-fill"></i>
+          </button>
+          {isUpdating && (
+            <span className="btn btn-outline-warning" title="Серия обновляется в реальном времени">
+              <i className="bi bi-arrow-repeat"></i>
+            </span>
+          )}
+          <button
+            className="btn btn-outline-danger"
+            onClick={onRemove}
+            title="Удалить серию"
+          >
+            <i className="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+
+      {/* Выбор таблицы для серии */}
+      <div className="row g-2 mb-2">
+        <div className="col-12">
+          <label className="form-label small text-white">Таблица для серии</label>
+          <select
+            className="form-select form-select-sm bg-secondary text-light border-dark"
+            value={series.selectedTable || ''}
+            onChange={(e) => handleTableChange(e.target.value)}
+          >
+            <option value="">Выберите таблицу</option>
+            {tableNames.map(tableName => (
+              <option key={tableName} value={tableName}>
+                {tableName}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="row g-2">
+        <div className="col-md-4">
+          <label className="form-label small text-white">Ось X</label>
+          <select
+            className="form-select form-select-sm bg-secondary text-light border-dark"
+            value={series.xAxis || ''}
+            onChange={(e) => onUpdate({ xAxis: e.target.value })}
+            disabled={!series.selectedTable}
+          >
+            <option value="">Выберите столбец</option>
+            {availableColumns.map(column => (
+              <option key={column} value={column}>
+                {column}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="col-md-4">
+          <label className="form-label small text-white">Ось Y</label>
+          <select
+            className="form-select form-select-sm bg-secondary text-light border-dark"
+            value={series.yAxis || ''}
+            onChange={(e) => onUpdate({ yAxis: e.target.value })}
+            disabled={!series.selectedTable}
+          >
+            <option value="">Выберите столбец</option>
+            {availableColumns.map(column => (
+              <option key={column} value={column}>
+                {column}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="col-md-4">
+          <label className="form-label small text-white">Цвет</label>
+          <div className="d-flex align-items-center">
+            <input
+              type="color"
+              className="form-control form-control-color form-control-sm bg-secondary border-dark me-2"
+              value={series.color || '#ff0000'}
+              onChange={(e) => onUpdate({ color: e.target.value })}
+              style={{ width: '30px', height: '30px' }}
+            />
+            <select
+              className="form-select form-select-sm bg-secondary text-light border-dark"
+              value={series.style || 'solid'}
+              onChange={(e) => onUpdate({ style: e.target.value })}
+            >
+              <option value="solid">Сплошная</option>
+              <option value="dashed">Пунктир</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {series.selectedTable && series.xAxis && series.yAxis && (
+        <div className="mt-2 p-2 bg-secondary rounded">
+          <small className="text-white">SQL запрос:</small>
+          <code className="d-block text-info small">
+            SELECT {series.xAxis}, {series.yAxis} FROM {series.selectedTable}
+          </code>
+        </div>
+      )}
+    </div>
+  );
+};
 
   // Получаем серии для текущего графика
   const series = chartSeries[chart.id] || [];
 
   const handleAddSeries = () => {
-    onAddSeries(chart.id, {
-      name: `Серия ${series.length + 1}`,
-      xAxis: chart.xAxis || '', // Наследуем настройки от основного графика
-      yAxis: chart.yAxis || '', // Наследуем настройки от основного графика
-      color: `hsl(${Math.random() * 360}, 70%, 60%)`, // Случайный цвет
-      width: 2,
-      style: 'solid',
-      enabled: true,
-      data: []
-    });
-  };
+  onAddSeries(chart.id, {
+    name: `Серия ${series.length + 1}`,
+    selectedTable: chart.selectedTable || '', // Наследуем таблицу от основного графика
+    xAxis: '',
+    yAxis: '',
+    color: `hsl(${Math.random() * 360}, 70%, 60%)`,
+    width: 2,
+    style: 'solid',
+    enabled: true,
+    data: []
+  });
+};
 
   return (
     <div className="chart-settings-item p-3 mb-3 rounded bg-dark" style={{ border: '1px solid #444' }}>
@@ -567,7 +561,13 @@ const ChartSettings = ({
             {series.map(seriesItem => (
               <SeriesSettings
                 key={seriesItem.id}
-                seriesItem={seriesItem}
+                series={seriesItem}
+                chart={chart} // Теперь передаем chart как пропс
+                onUpdate={(updates) => onUpdateSeries(chart.id, seriesItem.id, updates)}
+                onRemove={() => onRemoveSeries(chart.id, seriesItem.id)}
+                onExecute={onExecuteQuery}
+                tableNames={tableNames}
+                columnsByTable={columnsByTable}
               />
             ))}
           </div>

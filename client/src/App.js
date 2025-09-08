@@ -13,9 +13,14 @@ const API_BASE_URL = 'http://localhost:8080/api';
 
 function transformData(inputJson, xAxis = 'Measurement_time', yAxis = 'Current_value') {
   let transformedData = inputJson.map(item => ({
-    time: item[xAxis] || item.Measurement_time,
-    value: item[yAxis] || item.Current_value
+    time: item[xAxis] || item.Measurement_time || item.time,
+    value: item[yAxis] || item.Current_value || item.Voltage_value || item.value  // ДОБАВЛЕНО Voltage_value
   }));
+  
+  // Фильтруем некорректные данные
+  transformedData = transformedData.filter(item => 
+    item.time !== undefined && item.value !== undefined
+  );
   
   // Ограничиваем количество точек до 1500
   if (transformedData.length > 1500) {
@@ -35,101 +40,91 @@ function App() {
   const [showSqlPanel, setShowSqlPanel] = useState(false);
   const [updatingCharts, setUpdatingCharts] = useState(new Set());
   const [editTitleValue, setEditTitleValue] = useState('');
-  // Состояние для хранения метаданных
   const [tablesMetadata, setTablesMetadata] = useState({});
   const [tableNames, setTableNames] = useState([]);
   const [columnsByTable, setColumnsByTable] = useState({});
   const [chartSeries, setChartSeries] = useState({});
-
-const addSeriesToChart = (chartId, seriesConfig) => {
-  const normalizedId = normalizeId(chartId);
-  console.log('Adding series to chart:', normalizedId, seriesConfig);
-  
-  const newSeries = {
-    ...seriesConfig,
-    id: Date.now() + Math.random() // Уникальный ID
-  };
-
-  setChartSeries(prev => {
-    const currentSeries = prev[normalizedId] || [];
-    const newState = {
-      ...prev,
-      [normalizedId]: [...currentSeries, newSeries]
-    };
-    console.log('New chartSeries state:', newState);
-    return newState;
-  });
-};
-
-const removeSeriesFromChart = (chartId, seriesId) => {
-  const normalizedId = normalizeId(chartId);
-  console.log('Removing series:', normalizedId, seriesId);
-  
-  setChartSeries(prev => {
-    const currentSeries = prev[normalizedId] || [];
-    const filteredSeries = currentSeries.filter(s => s.id !== seriesId);
-    
-    if (filteredSeries.length === 0) {
-      const newState = { ...prev };
-      delete newState[normalizedId];
-      console.log('After removal (empty):', newState);
-      return newState;
-    }
-    
-    const newState = {
-      ...prev,
-      [normalizedId]: filteredSeries
-    };
-    console.log('After removal:', newState);
-    return newState;
-  });
-};
-
-const updateSeriesInChart = (chartId, seriesId, updates) => {
-  const normalizedId = normalizeId(chartId);
-  console.log('Updating series:', normalizedId, seriesId, updates);
-  
-  setChartSeries(prev => {
-    const currentSeries = prev[normalizedId] || [];
-    const updatedSeries = currentSeries.map(s =>
-      s.id === seriesId ? { ...s, ...updates } : s
-    );
-    
-    const newState = {
-      ...prev,
-      [normalizedId]: updatedSeries
-    };
-    console.log('After update:', newState);
-    return newState;
-  });
-};
-
 
   const normalizeId = (id) => {
     if (id === null || id === undefined || id === '') return null;
     return typeof id === 'string' ? parseInt(id, 10) : id;
   };
 
+  // Функции работы с сериями
+  const addSeriesToChart = (chartId, seriesConfig) => {
+    const normalizedId = normalizeId(chartId);
+    
+    const newSeries = {
+      ...seriesConfig,
+      id: Date.now() + Math.random(),
+      selectedTable: seriesConfig.selectedTable || '',
+      data: [],
+      lastUpdate: Date.now()
+    };
+
+    setChartSeries(prev => {
+      const currentSeries = prev[normalizedId] || [];
+      return {
+        ...prev,
+        [normalizedId]: [...currentSeries, newSeries]
+      };
+    });
+  };
+
+  const removeSeriesFromChart = (chartId, seriesId) => {
+    const normalizedId = normalizeId(chartId);
+    
+    setChartSeries(prev => {
+      const currentSeries = prev[normalizedId] || [];
+      const filteredSeries = currentSeries.filter(s => s.id !== seriesId);
+      
+      if (filteredSeries.length === 0) {
+        const newState = { ...prev };
+        delete newState[normalizedId];
+        return newState;
+      }
+      
+      return {
+        ...prev,
+        [normalizedId]: filteredSeries
+      };
+    });
+  };
+
+  const updateSeriesInChart = (chartId, seriesId, updates) => {
+    const normalizedId = normalizeId(chartId);
+    
+    setChartSeries(prev => {
+      const currentSeries = prev[normalizedId] || [];
+      const updatedSeries = currentSeries.map(s =>
+        s.id === seriesId ? { 
+          ...s, 
+          ...updates,
+          lastUpdate: Date.now()
+        } : s
+      );
+      
+      return {
+        ...prev,
+        [normalizedId]: updatedSeries
+      };
+    });
+  };
+
   //МЕТАДАННЫЕ
   const parseMetadata = useCallback((metadata) => {
     if (!metadata || !metadata.tables) return;
     
-    // Извлекаем названия таблиц
     const tables = metadata.tables.map(table => table.table_name);
     setTableNames(tables);
     
-    // Создаем объект с колонками по таблицам
     const columnsMap = {};
     metadata.tables.forEach(table => {
       columnsMap[table.table_name] = table.columns.map(col => col.column_name);
     });
     setColumnsByTable(columnsMap);
     
-    // Сохраняем полные метаданные
     setTablesMetadata(metadata);
-    
-    console.log('Table names:', tables);
-    console.log('Columns by table:', columnsMap);
   }, []);
 
   // Парсинг названий таблицы, столбцов
@@ -142,9 +137,6 @@ const updateSeriesInChart = (chartId, seriesId, updates) => {
         }
         
         const metadata = await response.json();
-        console.log('Raw metadata:', metadata);
-        
-        // Парсим и распределяем метаданные
         parseMetadata(metadata.metadata || metadata);
       } catch (error) {
         console.error("Ошибка при загрузке названий:", error);
@@ -163,11 +155,7 @@ const updateSeriesInChart = (chartId, seriesId, updates) => {
       }
       
       const data = await response.json();
-      console.log('Raw API response:', data);
-      
       const transformedData = transformData(data.databases);
-      console.log('Transformed data:', transformedData);
-      
       return transformedData;
     } catch (error) {
       console.error("Ошибка при загрузке данных:", error);
@@ -184,154 +172,139 @@ const updateSeriesInChart = (chartId, seriesId, updates) => {
     ));
   }, []);
 
-  // В App.js, обновите handleChartUpdateToggle
-const handleChartUpdateToggle = useCallback(async (chartId) => {
-  const normalizedChartId = normalizeId(chartId);
-  
-  // Проверяем, обновляется ли уже этот график
-  const isCurrentlyUpdating = updatingCharts.has(normalizedChartId);
-  
-  if (isCurrentlyUpdating) {
-    // Останавливаем обновление - просто удаляем из Set
-    setUpdatingCharts(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(normalizedChartId);
-      return newSet;
-    });
-    console.log(`Остановлено обновление графика ${normalizedChartId}`);
-  } else {
-    // Запускаем обновление
-    setUpdatingCharts(prev => new Set(prev).add(normalizedChartId));
-    console.log(`Запущено обновление графика ${normalizedChartId}`);
-    
-    // Сразу обновляем данные при первом запуске
-    const newData = await fetchNewData();
-    if (newData.length > 0) {
-      setCharts(prev => prev.map(chart => 
-        chart.id === normalizedChartId 
-          ? { ...chart, data: newData }
-          : chart
-      ));
-    }
-  }
-}, [updatingCharts, fetchNewData]);
+  // Обработчик SQL запросов
+  const handleExecuteQuery = useCallback(async (query, chartId = null, seriesId = null) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/execute-query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Sql: query })
+      });
 
-// Эффект для непрерывного обновления графиков
-useEffect(() => {
-  if (updatingCharts.size === 0) return;
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-  const intervals = {};
-
-  // Создаем отдельные интервалы для каждого графика с его собственным интервалом
-  charts.forEach(chart => {
-    if (updatingCharts.has(chart.id)) {
-      const interval = chart.refreshInterval || 100; // Используем интервал из настроек графика
-      
-      if (!intervals[interval]) {
-        intervals[interval] = setInterval(async () => {
-          const newData = await fetchNewData();
-          console.log('Fetched new data:', newData);
+      const data = await response.json();
+      if (data.databases) {
+        const normalizedChartId = normalizeId(chartId);
+        
+        if (normalizedChartId) {
+          let transformedData;
           
-          if (newData.length > 0) {
-            setCharts(prev => prev.map(c => 
-              updatingCharts.has(c.id) && c.refreshInterval === interval
-                ? { ...c, data: newData }
-                : c
-            ));
+          if (seriesId) {
+            const tableMatch = query.match(/FROM\s+(\w+)/i);
+            const selectMatch = query.match(/SELECT\s+([^,]+),\s*([^\s]+)/i);
+            
+            if (tableMatch && selectMatch) {
+              const tableName = tableMatch[1];
+              const xAxis = selectMatch[1].trim();
+              const yAxis = selectMatch[2].trim();
+              
+              transformedData = transformData(data.databases, xAxis, yAxis);
+            }
+          } else {
+            const chart = charts.find(c => c.id === normalizedChartId);
+            transformedData = transformData(data.databases, chart?.xAxis, chart?.yAxis);
           }
-        }, interval);
+          
+          if (transformedData && transformedData.length > 0) {
+            if (transformedData.length > 1500) {
+              transformedData = transformedData.slice(-1500);
+            }
+            
+            if (seriesId) {
+              updateSeriesInChart(normalizedChartId, seriesId, { data: transformedData });
+            } else {
+              setCharts(prev => prev.map(chart => 
+                chart.id === normalizedChartId 
+                  ? { ...chart, data: transformedData }
+                  : chart
+              ));
+            }
+          }
+        }
       }
+    } catch (error) {
+      console.error("Ошибка при выполнении запроса:", error);
+      throw error;
     }
-  });
+  }, [charts, setCharts]);
 
-  return () => {
-    // Очищаем все интервалы
-    Object.values(intervals).forEach(intervalId => clearInterval(intervalId));
-  };
-}, [updatingCharts, fetchNewData, charts]);
+  // Функция для обновления данных конкретного графика
+  const updateChartData = useCallback(async (chartId) => {
+    try {
+      const chart = charts.find(c => c.id === chartId);
+      if (!chart) return;
+
+      const updatePromises = [];
+
+      // Обновляем основную серию
+      if (chart.selectedTable && chart.xAxis && chart.yAxis) {
+        const mainQuery = `SELECT ${chart.xAxis}, ${chart.yAxis} FROM ${chart.selectedTable}`;
+        updatePromises.push(handleExecuteQuery(mainQuery, chartId));
+      }
+
+      // Обновляем дополнительные серии
+      const seriesForChart = chartSeries[chartId] || [];
+      for (const series of seriesForChart) {
+        if (series.selectedTable && series.xAxis && series.yAxis) {
+          const seriesQuery = `SELECT ${series.xAxis}, ${series.yAxis} FROM ${series.selectedTable}`;
+          updatePromises.push(handleExecuteQuery(seriesQuery, chartId, series.id));
+        }
+      }
+
+      await Promise.all(updatePromises);
+      
+    } catch (error) {
+      console.error(`Ошибка при обновлении графика ${chartId}:`, error);
+    }
+  }, [charts, chartSeries, handleExecuteQuery]);
+
+  // Обработчик переключения обновления графика
+  const handleChartUpdateToggle = useCallback(async (chartId) => {
+    const normalizedChartId = normalizeId(chartId);
+    
+    const isCurrentlyUpdating = updatingCharts.has(normalizedChartId);
+    
+    if (isCurrentlyUpdating) {
+      setUpdatingCharts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(normalizedChartId);
+        return newSet;
+      });
+    } else {
+      setUpdatingCharts(prev => new Set(prev).add(normalizedChartId));
+      await updateChartData(normalizedChartId);
+    }
+  }, [updatingCharts, updateChartData]);
 
   // Эффект для непрерывного обновления графиков
   useEffect(() => {
     if (updatingCharts.size === 0) return;
 
-    const interval = setInterval(async () => {
-      const newData = await fetchNewData();
-      console.log('Fetched new data:', newData);
-      
-      if (newData.length > 0) {
-        setCharts(prev => prev.map(chart => {
-          if (updatingCharts.has(chart.id)) {
-            // Объединяем старые и новые данные, ограничивая до 1500 точек
-            const currentData = chart.data || [];
-            const combinedData = [...currentData, ...newData];
-            
-            let limitedData = combinedData;
-            if (combinedData.length > 1500) {
-              limitedData = combinedData.slice(-1500); // Берем последние 1500 точек
-            }
-            
-            return { ...chart, data: limitedData };
-          }
-          return chart;
-        }));
+    const intervals = {};
+
+    charts.forEach(chart => {
+      if (updatingCharts.has(chart.id)) {
+        const interval = chart.refreshInterval || 1000;
+        
+        if (!intervals[chart.id]) {
+          intervals[chart.id] = setInterval(async () => {
+            await updateChartData(chart.id);
+          }, interval);
+        }
       }
-    }, UpdateInterval);
-
-    return () => clearInterval(interval);
-  }, [updatingCharts, fetchNewData, UpdateInterval]);
-
-  // Обработчик SQL запросов
-const handleExecuteQuery = useCallback(async (query, chartId = null, seriesId = null) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/execute-query`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ Sql: query })
     });
 
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return () => {
+      Object.values(intervals).forEach(intervalId => clearInterval(intervalId));
+    };
+  }, [updatingCharts, charts, updateChartData]);
 
-    const data = await response.json();
-    if (data.databases) {
-      const normalizedChartId = normalizeId(chartId);
-      
-      if (normalizedChartId) {
-        const chart = charts.find(c => c.id === normalizedChartId);
-        let transformedData = transformData(
-          data.databases, 
-          chart?.xAxis, 
-          chart?.yAxis
-        );
-        
-        if (transformedData.length > 1500) {
-          transformedData = transformedData.slice(-1500);
-        }
-        
-        if (seriesId) {
-          // Обновляем данные конкретной серии
-          console.log('Updating series data:', seriesId, transformedData.length, 'points');
-          updateSeriesInChart(normalizedChartId, seriesId, { data: transformedData });
-        } else {
-          // Обновляем основные данные графика
-          console.log('Updating main chart data:', transformedData.length, 'points');
-          setCharts(prev => prev.map(chart => 
-            chart.id === normalizedChartId 
-              ? { ...chart, data: transformedData }
-              : chart
-          ));
-        }
-      }
-    }
-  } catch (error) {
-    console.error("Ошибка при выполнении запроса:", error);
-    throw error;
-  }
-}, [charts, updateSeriesInChart, setCharts]);
   // Добавление нового графика
   const addChartWithType = useCallback(() => {
     const newChart = {
       id: Date.now(),
-      data: [], // Пустой массив вместо measurements
+      data: [],
       type: selectedChartType,
       orderIndex: charts.length + 1,
       title: `График #${charts.length + 1}`,
@@ -339,7 +312,7 @@ const handleExecuteQuery = useCallback(async (query, chartId = null, seriesId = 
       xAxis: '',
       yAxis: '',
       color: '#133592',
-      refreshInterval: 100,
+      refreshInterval: 1000,
       showGrid: true
     };
     setCharts(prev => [...prev, newChart]);
@@ -361,7 +334,6 @@ const handleExecuteQuery = useCallback(async (query, chartId = null, seriesId = 
   const resetChartSettings = useCallback((chartId) => {
     const normalizedId = normalizeId(chartId);
     
-    // Сбрасываем настройки графика к значениям по умолчанию
     setCharts(prev => prev.map(chart => 
       chart.id === normalizedId 
         ? {
@@ -372,7 +344,7 @@ const handleExecuteQuery = useCallback(async (query, chartId = null, seriesId = 
             color: '#133592',
             refreshInterval: 1000,
             showGrid: true,
-            data: [] // Пустой массив данных
+            data: []
           }
         : chart
     ));
@@ -381,10 +353,8 @@ const handleExecuteQuery = useCallback(async (query, chartId = null, seriesId = 
   const removeChart = useCallback((chartId) => {
     const normalizedId = normalizeId(chartId);
     
-    // Сначала сбрасываем настройки
     resetChartSettings(normalizedId);
     
-    // Останавливаем обновление при удалении
     setUpdatingCharts(prev => {
       const newSet = new Set(prev);
       newSet.delete(normalizedId);

@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 export const Chart = props => {
     const {
         data,
-        series = [], // Новый пропс для дополнительных серий
+        series = [],
         type,
         isUpdating,
         colors: {
@@ -18,9 +18,11 @@ export const Chart = props => {
 
     const chartContainerRef = useRef();
     const chartRef = useRef(null);
-    const seriesMapRef = useRef(new Map()); // Для хранения всех серий
+    const seriesMapRef = useRef(new Map());
     const [resizeObserver, setResizeObserver] = useState(null);
     const lastDataRef = useRef([]);
+    const previousSeriesRef = useRef([]);
+    const isUpdatingRef = useRef(false);
 
     // Функция для преобразования 8-значного HEX в 6-значный
     const normalizeColor = (color) => {
@@ -63,12 +65,20 @@ export const Chart = props => {
         const uniqueDataMap = new Map();
         
         rawData.forEach(item => {
-            if (item.time && item.value !== undefined) {
+            // Проверяем, что item не null/undefined и имеет необходимые поля
+            if (item && item.time !== null && item.time !== undefined && 
+                item.value !== null && item.value !== undefined) {
+                
                 const timeInSeconds = timeToSeconds(item.time);
-                uniqueDataMap.set(timeInSeconds, {
-                    time: timeInSeconds,
-                    value: parseFloat(item.value) || 0
-                });
+                // Проверяем, что значение не null/undefined перед преобразованием
+                const numericValue = parseFloat(item.value);
+                
+                if (!isNaN(numericValue)) {
+                    uniqueDataMap.set(timeInSeconds, {
+                        time: timeInSeconds,
+                        value: numericValue
+                    });
+                }
             }
         });
 
@@ -84,207 +94,259 @@ export const Chart = props => {
 
     // Эффект для создания графика
     useEffect(() => {
-  if (!chartContainerRef.current) return;
+        if (!chartContainerRef.current) return;
 
-  const handleResize = () => {
-    if (chartRef.current && chartContainerRef.current) {
-      chartRef.current.applyOptions({ 
-        width: chartContainerRef.current.clientWidth,
-        height: chartContainerRef.current.clientHeight
-      });
-    }
-  };
+        const handleResize = () => {
+            if (chartRef.current && chartContainerRef.current) {
+                chartRef.current.applyOptions({ 
+                    width: chartContainerRef.current.clientWidth,
+                    height: chartContainerRef.current.clientHeight
+                });
+            }
+        };
 
-  const chart = createChart(chartContainerRef.current, {
-    layout: {
-      background: { type: ColorType.Solid, color: backgroundColor },
-      textColor,
-    },
-    width: chartContainerRef.current.clientWidth,
-    height: 300,
-    timeScale: {
-      timeVisible: true,
-      secondsVisible: true,
-      tickMarkFormatter: (time) => {
-        return secondsToTime(time);
-      }
-    },
-    grid: {
-      vertLines: { color: '#444' },
-      horzLines: { color: '#444' },
-    },
-    autoSize: true,
-    handleScroll: {
-      mouseWheel: true,
-      pressedMouseMove: true,
-    },
-    handleScale: {
-      axisPressedMouseMove: true,
-      mouseWheel: true,
-      pinch: true,
-    },
-  });
-
-  chartRef.current = chart;
-  seriesMapRef.current = new Map();
-
-  // ResizeObserver
-  const observer = new ResizeObserver(entries => {
-    for (let entry of entries) {
-      if (entry.target === chartContainerRef.current) {
-        handleResize();
-      }
-    }
-  });
-
-  observer.observe(chartContainerRef.current);
-  setResizeObserver(observer);
-
-  return () => {
-    observer.disconnect();
-    chart.remove();
-  };
-}, [backgroundColor, textColor]);
-
-    // Эффект для управления всеми сериями
-    useEffect(() => {
-  if (!chartRef.current) return;
-
-  const chart = chartRef.current;
-  const seriesMap = seriesMapRef.current;
-
-  // Создаем/обновляем основную серию (LineSeries вместо AreaSeries)
-  if (!seriesMap.has('main')) {
-    const normalizedLineColor = normalizeColor(lineColor);
-
-    const mainSeries = chart.addSeries(LineSeries, { 
-      color: normalizedLineColor,
-      lineWidth: 2,
-      title: 'Основная серия',
-      priceLineVisible: false
-    });
-    seriesMap.set('main', mainSeries);
-  }
-
-        // Обновляем настройки основной серии
-         const mainSeries = seriesMap.get('main');
-  if (mainSeries) {
-    const normalizedLineColor = normalizeColor(lineColor);
-    
-    mainSeries.applyOptions({
-      color: normalizedLineColor,
-      lineWidth: 2
-    });
-  }
-
-        // Удаляем дополнительные серии, которых больше нет
-        Array.from(seriesMap.keys()).forEach(key => {
-            if (key !== 'main' && !series.some(s => `series-${s.id}` === key)) {
-                const seriesToRemove = seriesMap.get(key);
-                if (seriesToRemove) {
-                    chart.removeSeries(seriesToRemove);
+        const chart = createChart(chartContainerRef.current, {
+            layout: {
+                background: { type: ColorType.Solid, color: backgroundColor },
+                textColor,
+            },
+            width: chartContainerRef.current.clientWidth,
+            height: 300,
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: true,
+                tickMarkFormatter: (time) => {
+                    return secondsToTime(time);
                 }
-                seriesMap.delete(key);
+            },
+            grid: {
+                vertLines: { color: '#444' },
+                horzLines: { color: '#444' },
+            },
+            autoSize: true,
+            handleScroll: {
+                mouseWheel: true,
+                pressedMouseMove: true,
+            },
+            handleScale: {
+                axisPressedMouseMove: true,
+                mouseWheel: true,
+                pinch: true,
+            },
+            // Добавляем обработчик ошибок для перехвата null значений
+            crosshair: {
+                vertLine: {
+                    labelVisible: false
+                },
+                horzLine: {
+                    labelVisible: false
+                }
             }
         });
 
-        // Создаем/обновляем дополнительные серии (LineSeries)
-        series.forEach(seriesItem => {
+        chartRef.current = chart;
+        seriesMapRef.current = new Map();
+
+        // СОЗДАЕМ ОСНОВНУЮ СЕРИЮ СРАЗУ ПРИ ИНИЦИАЛИЗАЦИИ ГРАФИКА
+        const normalizedLineColor = normalizeColor(lineColor);
+        const mainSeries = chart.addSeries(LineSeries, { 
+            color: normalizedLineColor,
+            lineWidth: 2,
+            title: 'Основная серия',
+            priceLineVisible: false,
+            lastValueVisible: false
+        });
+        seriesMapRef.current.set('main', mainSeries);
+
+        // ResizeObserver
+        const observer = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                if (entry.target === chartContainerRef.current) {
+                    handleResize();
+                }
+            }
+        });
+
+        observer.observe(chartContainerRef.current);
+        setResizeObserver(observer);
+
+        return () => {
+            observer.disconnect();
+            if (chartRef.current) {
+                chartRef.current.remove();
+            }
+        };
+    }, [backgroundColor, textColor, lineColor]);
+
+    // Эффект для управления всеми сериями
+    useEffect(() => {
+        if (!chartRef.current) return;
+
+        const chart = chartRef.current;
+        const seriesMap = seriesMapRef.current;
+        const currentSeries = series || [];
+
+        // ОБНОВЛЯЕМ НАСТРОЙКИ ОСНОВНОЙ СЕРИИ
+        const mainSeries = seriesMap.get('main');
+        if (mainSeries) {
+            const normalizedLineColor = normalizeColor(lineColor);
+            mainSeries.applyOptions({
+                color: normalizedLineColor,
+                lineWidth: 2,
+                title: 'Основная серия'
+            });
+        }
+
+        // Сравниваем с предыдущими сериями
+        const prevSeries = previousSeriesRef.current;
+        const seriesChanged = JSON.stringify(prevSeries.map(s => s.id)) !== 
+                            JSON.stringify(currentSeries.map(s => s.id));
+
+        if (seriesChanged) {
+            // Удаляем только те серии, которых действительно нет
+            Array.from(seriesMap.keys()).forEach(key => {
+                if (key !== 'main' && !currentSeries.some(s => `series-${s.id}` === key)) {
+                    const seriesToRemove = seriesMap.get(key);
+                    if (seriesToRemove) {
+                        try {
+                            chart.removeSeries(seriesToRemove);
+                        } catch (error) {
+                            console.warn('Ошибка при удалении серии:', error);
+                        }
+                    }
+                    seriesMap.delete(key);
+                }
+            });
+        }
+
+        // Создаем/обновляем дополнительные серии
+        currentSeries.forEach(seriesItem => {
+            if (seriesItem.enabled === false) return;
+
             const seriesKey = `series-${seriesItem.id}`;
             
-            if (!seriesMap.has(seriesKey) && seriesItem.enabled !== false) {
-                // Создаем новую серию
+            if (!seriesMap.has(seriesKey)) {
                 try {
                     const newSeries = chart.addSeries(LineSeries, {
                         color: normalizeColor(seriesItem.color || '#ff0000'),
                         lineWidth: seriesItem.width || 2,
                         lineStyle: seriesItem.style === 'dashed' ? 1 : 0,
                         title: seriesItem.name || `Серия ${seriesItem.id}`,
-                        priceLineVisible: false
+                        priceLineVisible: false,
+                        lastValueVisible: false
                     });
-                    
-                    if (seriesItem.data && seriesItem.data.length > 0) {
-                        const processedData = processChartData(seriesItem.data);
-                        if (processedData.length > 0) {
-                            newSeries.setData(processedData);
-                        }
-                    }
                     
                     seriesMap.set(seriesKey, newSeries);
                 } catch (error) {
                     console.error('Ошибка при создании серии:', error);
                 }
-            } else if (seriesMap.has(seriesKey)) {
-                // Обновляем существующую серию
-                const existingSeries = seriesMap.get(seriesKey);
-                
-                if (seriesItem.enabled === false) {
-                    // Удаляем отключенную серию
-                    try {
-                        chart.removeSeries(existingSeries);
-                        seriesMap.delete(seriesKey);
-                    } catch (error) {
-                        console.error('Ошибка при удалении серии:', error);
+            }
+
+            const existingSeries = seriesMap.get(seriesKey);
+            if (existingSeries && seriesItem.data && seriesItem.data.length > 0) {
+                try {
+                    const processedData = processChartData(seriesItem.data);
+                    if (processedData.length > 0) {
+                        existingSeries.setData(processedData);
                     }
-                } else if (existingSeries) {
-                    // Обновляем настройки серии
-                    try {
-                        existingSeries.applyOptions({
-                            color: normalizeColor(seriesItem.color || '#ff0000'),
-                            lineWidth: seriesItem.width || 2,
-                            lineStyle: seriesItem.style === 'dashed' ? 1 : 0,
-                            title: seriesItem.name || `Серия ${seriesItem.id}`
-                        });
-                        
-                        // Обновляем данные серии
-                        if (seriesItem.data && seriesItem.data.length > 0) {
-                            const processedData = processChartData(seriesItem.data);
-                            if (processedData.length > 0) {
-                                existingSeries.setData(processedData);
-                            }
-                        } else {
-                            existingSeries.setData([]);
-                        }
-                    } catch (error) {
-                        console.error('Ошибка при обновлении серии:', error);
-                    }
+                } catch (error) {
+                    console.error('Ошибка при обновлении данных серии:', error);
                 }
             }
         });
 
-        // Автомасштабирование
-        try {
-            if (chartRef.current) {
-                chartRef.current.timeScale().fitContent();
+        // Обновляем настройки существующих серий
+        currentSeries.forEach(seriesItem => {
+            const seriesKey = `series-${seriesItem.id}`;
+            const existingSeries = seriesMap.get(seriesKey);
+            
+            if (existingSeries) {
+                try {
+                    existingSeries.applyOptions({
+                        color: normalizeColor(seriesItem.color || '#ff0000'),
+                        lineWidth: seriesItem.width || 2,
+                        lineStyle: seriesItem.style === 'dashed' ? 1 : 0,
+                        title: seriesItem.name || `Серия ${seriesItem.id}`
+                    });
+                } catch (error) {
+                    console.error('Ошибка при обновлении настроек серии:', error);
+                }
             }
-        } catch (error) {
-            console.error('Ошибка при автомасштабировании:', error);
-        }
+        });
+
+        previousSeriesRef.current = currentSeries;
 
     }, [series, lineColor]);
 
     // Эффект для обновления данных основной серии
     useEffect(() => {
         const mainSeries = seriesMapRef.current.get('main');
-        if (mainSeries) {
-            if (data && data.length > 0) {
-                const processedData = processChartData(data);
-                if (processedData.length > 0) {
-                    try {
-                        mainSeries.setData(processedData);
-                        lastDataRef.current = processedData;
+        if (!mainSeries) {
+            console.warn('Main series not found in seriesMap');
+            return;
+        }
+
+        if (data && data.length > 0) {
+            // Используем debounce для уменьшения частоты обновлений
+            const timeoutId = setTimeout(() => {
+                try {
+                    isUpdatingRef.current = true;
+                    
+                    const processedData = processChartData(data);
+                    console.log('Updating main series with:', processedData.length, 'points');
+                    
+                    // Дополнительная проверка на пустые данные
+                    if (processedData && processedData.length > 0) {
+                        // Фильтруем любые возможные null значения
+                        const filteredData = processedData.filter(item => 
+                            item !== null && 
+                            item.time !== null && 
+                            item.value !== null &&
+                            !isNaN(item.value)
+                        );
                         
-                        if (chartRef.current) {
-                            chartRef.current.timeScale().fitContent();
+                        if (filteredData.length > 0) {
+                            // Безопасное обновление данных
+                            try {
+                                mainSeries.setData(filteredData);
+                                lastDataRef.current = filteredData;
+                            } catch (updateError) {
+                                console.error('Ошибка при установке данных:', updateError);
+                                // В случае ошибки пробуем установить пустые данные
+                                try {
+                                    mainSeries.setData([]);
+                                } catch (cleanupError) {
+                                    console.error('Ошибка при очистке данных:', cleanupError);
+                                }
+                            }
+                        } else {
+                            console.warn('Все данные отфильтрованы как null, очищаем серию');
+                            mainSeries.setData([]);
                         }
-                    } catch (error) {
-                        console.error('Ошибка при обновлении данных основной серии:', error);
+                    } else {
+                        console.warn('Нет обработанных данных для отображения');
+                        mainSeries.setData([]);
                     }
-                } else {
-                    mainSeries.setData([]);
+                } catch (error) {
+                    console.error('Ошибка при обновлении данных основной серии:', error);
+                    // В случае ошибки очищаем данные чтобы избежать дальнейших проблем
+                    try {
+                        mainSeries.setData([]);
+                    } catch (cleanupError) {
+                        console.error('Ошибка при очистке данных после сбоя:', cleanupError);
+                    }
+                } finally {
+                    isUpdatingRef.current = false;
                 }
-            } else {
+            }, 100); // Увеличиваем задержку для стабильности
+
+            return () => clearTimeout(timeoutId);
+        } else {
+            // Очищаем данные если их нет
+            try {
                 mainSeries.setData([]);
+            } catch (error) {
+                console.error('Ошибка при очистке данных:', error);
             }
         }
     }, [data, isUpdating]);
@@ -333,7 +395,6 @@ export const Chart = props => {
                     <span>Нет данных для отображения</span>
                 </div>
             )}
-            
         </div>
     );
 };

@@ -144,6 +144,23 @@ const ChartsContainer = ({
                           >
                             <i className={`bi ${isUpdating ? 'bi-pause-fill' : 'bi-play-fill'}`}></i>
                           </button>
+                          {/* ДОБАВЬТЕ ЭТУ КНОПКУ */}
+                          <button
+                            className="btn btn-outline-info btn-sm me-2"
+                            onClick={() => {
+                              // Функция для ручного масштабирования
+                              const chartElement = document.querySelector(`[key*="chart-content-${chart.id}"]`);
+                              if (chartElement) {
+                                const chartInstance = chartElement.__chart__;
+                                if (chartInstance) {
+                                  chartInstance.timeScale().fitContent();
+                                }
+                              }
+                            }}
+                            title="Автомасштабирование"
+                          >
+                            <i className="bi bi-arrows-fullscreen"></i>
+                          </button>
                           <button
                             className="btn btn-danger btn-sm"
                             onClick={() => onRemoveChart(chart.id)}
@@ -157,24 +174,27 @@ const ChartsContainer = ({
                   </div>
                   
                   <div className="chart-content">
+                    {isUpdating && (
+                      <div className="updating-overlay">
+                        <div className="spinner-border spinner-border-sm text-warning" role="status">
+                          <span className="visually-hidden">Обновление...</span>
+                        </div>
+                      </div>
+                    )}
                     <Chart 
                       key={`chart-content-${chart.id}-${index}`}
-                      data={chart.data || []}
-                      series={chartSeriesData} // Передаем серии для этого графика
+                      data={chart.data || []} // ОСНОВНЫЕ ДАННЫЕ
+                      series={chartSeriesData} // ДОПОЛНИТЕЛЬНЫЕ СЕРИИ
                       type={chart.type}
                       isUpdating={isUpdating}
                       colors={{
                         backgroundColor: '#2a2a2a',
                         textColor: 'white',
-                        lineColor: chart.color || '#133592',
+                        lineColor: chart.color || '#133592', // ЦВЕТ ОСНОВНОЙ СЕРИИ
                         areaTopColor: '#2a4a9c',
                         areaBottomColor: '#1a2a5c'
                       }}
                     />
-                    {/* Отладочная информация */}
-                    {console.log(`Chart ${chart.id} data:`, chart.data || measurements)}
-                    {console.log(`Chart ${chart.id} series:`, chartSeriesData)}
-                    {console.log(`Chart ${chart.id} color:`, chart.color)}
                   </div>
                   
                   <div className="chart-footer">
@@ -189,6 +209,24 @@ const ChartsContainer = ({
                         <span className="text-info ms-2">ⓘ Лимит: 1500 точек</span>
                       )}
                     </small>
+                    
+                    {/* Статус дополнительных серий */}
+                    {chartSeriesData.length > 0 && (
+                      <div className="series-status-list mt-2">
+                        {chartSeriesData.map(seriesItem => (
+                          <div key={seriesItem.id} className="series-status">
+                            <small className={isUpdating ? "text-warning" : "text-muted"}>
+                              <i className="bi bi-circle-fill me-1" style={{ 
+                                color: seriesItem.color || '#ff0000',
+                                fontSize: '0.6rem'
+                              }}></i>
+                              {seriesItem.name}: {seriesItem.data?.length || 0} точек
+                              {isUpdating && " 🔄"}
+                            </small>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

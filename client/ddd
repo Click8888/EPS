@@ -9,6 +9,7 @@ Grafana (https://yandex.ru/video/preview/4797759135690673695)
 1. сделать вторую линию
 2. улучшить сам линейный график(чтобы красивее выглядел)
 3. сделать векторную диаграмму
+4. Сделать главную страницу
 ; {/* 
 ;       <SqlPanel
 ;         show={showSqlPanel}
@@ -19,3 +20,4 @@ Grafana (https://yandex.ru/video/preview/4797759135690673695)
 ;         onSelectChart={(id) => setSelectedChartId(normalizeId(id))}
 ;       /> */}
 
+1. Попробвать сделать как-то отображение значений точки при наведении курсора ()
