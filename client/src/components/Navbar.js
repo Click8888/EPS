@@ -4,7 +4,7 @@ return (
 
   <nav className="navbar navbar-dark bg-dark">
             <div className="container-fluid bg-dark">
-              <a className="navbar-brand fw-bold" href="#">EPS</a>
+              <a className="navbar-brand fw-bold" href="/">EPS</a>
             </div>
           </nav>
 
