@@ -45,10 +45,66 @@ function Graph() {
   const [columnsByTable, setColumnsByTable] = useState({});
   const [chartSeries, setChartSeries] = useState({});
 
+  //ГЕНЕРАЦИЯ ДАННЫХ -НАЧАЛО
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState('stopped');
+
+// Функции для управления генерацией
+const startDataGeneration = useCallback(async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/generation/start`, {
+      method: 'POST'
+    });
+    
+    if (response.ok) {
+      setIsGenerating(true);
+      setGenerationStatus('running');
+    }
+  } catch (error) {
+    console.error("Ошибка запуска генерации:", error);
+  }
+}, []);
+
+const stopDataGeneration = useCallback(async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/generation/stop`, {
+      method: 'POST'
+    });
+    
+    if (response.ok) {
+      setIsGenerating(false);
+      setGenerationStatus('stopped');
+    }
+  } catch (error) {
+    console.error("Ошибка остановки генерации:", error);
+  }
+}, []);
+
+// Эффект для проверки статуса при загрузке
+useEffect(() => {
+  const checkGenerationStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/generation/status`);
+      if (response.ok) {
+        const status = await response.json();
+        setIsGenerating(status.isGenerating);
+        setGenerationStatus(status.status);
+      }
+    } catch (error) {
+      console.error("Ошибка проверки статуса генерации:", error);
+    }
+  };
+  
+  checkGenerationStatus();
+}, []);
+  //ГЕНЕРАЦИЯ ДАННЫХ - КОНЕЦ
+
   const normalizeId = (id) => {
     if (id === null || id === undefined || id === '') return null;
     return typeof id === 'string' ? parseInt(id, 10) : id;
   };
+
+
 
   // Функции работы с сериями
   const addSeriesToChart = (chartId, seriesConfig) => {
@@ -163,6 +219,7 @@ function Graph() {
     }
   }, []);
 
+  // Добавьте эту функцию
   const handleChartTitleChange = useCallback((chartId, newTitle) => {
     const normalizedId = normalizeId(chartId);
     setCharts(prev => prev.map(chart => 
@@ -463,6 +520,12 @@ function Graph() {
         onAddSeries={addSeriesToChart}
         onRemoveSeries={removeSeriesFromChart}
         onUpdateSeries={updateSeriesInChart}
+        onChartTitleChange={handleChartTitleChange}
+        //ГЕНЕРАЦИЯ
+        isGenerating={isGenerating}
+        onStartGeneration={startDataGeneration}
+        onStopGeneration={stopDataGeneration}
+        generationStatus={generationStatus}
       />
       
       <div className="charts-bottom-panel d-flex justify-content-center gap-2 p-2">

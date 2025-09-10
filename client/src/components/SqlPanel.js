@@ -36,193 +36,7 @@ const ErrorAlert = ({ error, onClose }) => {
   );
 };
 
-const SeriesSettings = ({ series, chart, onUpdate, onRemove, onExecute, tableNames, columnsByTable }) => {
-  const availableColumns = chart.selectedTable ? 
-    columnsByTable[chart.selectedTable] || [] : [];
-
-  const generateQuery = () => {
-    if (!chart.selectedTable || !series.xAxis || !series.yAxis) {
-      alert('Выберите таблицу и обе оси для генерации запроса');
-      return;
-    }
-
-    return `SELECT ${series.xAxis}, ${series.yAxis} FROM ${chart.selectedTable}`;
-  };
-
-  const handleExecuteQuery = () => {
-    const query = generateQuery();
-    if (query) {
-      onExecute(query, chart.id, series.id);
-    }
-  };
-
-  return (
-    <div className="series-settings p-3 mb-3 bg-dark rounded" style={{ border: '1px solid #555' }}>
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <input
-          type="text"
-          className="form-control form-control-sm bg-secondary text-white border-dark me-2"
-          value={series.name}
-          onChange={(e) => onUpdate({ name: e.target.value })}
-          placeholder="Название серии"
-          style={{ maxWidth: '200px' }}
-        />
-        <div className="btn-group btn-group-sm">
-          <button
-            className="btn btn-outline-primary"
-            onClick={handleExecuteQuery}
-            title="Выполнить запрос для этой серии"
-            disabled={!chart.selectedTable || !series.xAxis || !series.yAxis}
-          >
-            <i className="bi bi-play-fill"></i>
-          </button>
-          <button
-            className="btn btn-outline-danger"
-            onClick={onRemove}
-            title="Удалить серию"
-          >
-            <i className="bi bi-trash"></i>
-          </button>
-        </div>
-      </div>
-
-      <div className="row g-2">
-        <div className="col-md-4">
-          <label className="form-label small text-white">Ось X</label>
-          <select
-            className="form-select form-select-sm bg-secondary text-light border-dark"
-            value={series.xAxis || ''}
-            onChange={(e) => onUpdate({ xAxis: e.target.value })}
-            disabled={!chart.selectedTable}
-          >
-            <option value="">Выберите столбец</option>
-            {availableColumns.map(column => (
-              <option key={column} value={column}>
-                {column}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="col-md-4">
-          <label className="form-label small text-white">Ось Y</label>
-          <select
-            className="form-select form-select-sm bg-secondary text-light border-dark"
-            value={series.yAxis || ''}
-            onChange={(e) => onUpdate({ yAxis: e.target.value })}
-            disabled={!chart.selectedTable}
-          >
-            <option value="">Выберите столбец</option>
-            {availableColumns.map(column => (
-              <option key={column} value={column}>
-                {column}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="col-md-4">
-          <label className="form-label small text-white">Цвет</label>
-          <div className="d-flex align-items-center">
-            <input
-              type="color"
-              className="form-control form-control-color form-control-sm bg-secondary border-dark me-2"
-              value={series.color || '#ff0000'}
-              onChange={(e) => onUpdate({ color: e.target.value })}
-              style={{ width: '30px', height: '30px' }}
-            />
-            <select
-              className="form-select form-select-sm bg-secondary text-light border-dark"
-              value={series.style || 'solid'}
-              onChange={(e) => onUpdate({ style: e.target.value })}
-            >
-              <option value="solid">Сплошная</option>
-              <option value="dashed">Пунктир</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {series.xAxis && series.yAxis && (
-        <div className="mt-2 p-2 bg-secondary rounded">
-          <small className="text-white">SQL запрос:</small>
-          <code className="d-block text-info small">
-            SELECT {series.xAxis}, {series.yAxis} FROM {chart.selectedTable}
-          </code>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Компонент для настройки параметров графика
-const ChartSettings = ({ 
-  chart, 
-  charts, 
-  onExecute, 
-  onSave, 
-  onDelete, 
-  editTitleValue,
-  tableNames,
-  columnsByTable,
-  chartSeries = {}, // Новый пропс для дополнительных серий
-  onAddSeries = () => {}, // Функция добавления серии
-  onRemoveSeries = () => {}, // Функция удаления серии
-  onUpdateSeries = () => {}, // Функция обновления серии
-  onExecuteQuery = () => {}, // Функция выполнения запроса
-  isUpdating
-  
-}) => {
-  // Получаем доступные колонки для выбранной таблицы
-  const availableColumns = chart.selectedTable ? 
-    columnsByTable[chart.selectedTable] || [] : [];
-
-  const handleSave = () => {
-    if (!chart.name?.trim()) {
-      alert('Название графика обязательно');
-      return;
-    }
-
-    onSave(chart);
-    alert('Настройки сохранены!');
-  };
-
-  const handleTableChange = (tableName) => {
-    const updatedChart = {
-      ...chart,
-      selectedTable: tableName,
-      // Не сбрасываем оси, если они могут существовать в новой таблице
-      xAxis: chart.xAxis && columnsByTable[tableName]?.includes(chart.xAxis) ? chart.xAxis : '',
-      yAxis: chart.yAxis && columnsByTable[tableName]?.includes(chart.yAxis) ? chart.yAxis : ''
-    };
-    onSave(updatedChart);
-  };
-
-  const handleFieldChange = (field, value) => {
-    const updatedChart = {
-      ...chart,
-      [field]: value
-    };
-    onSave(updatedChart);
-  };
-
-  const generateQuery = () => {
-    if (!chart.selectedTable || !chart.xAxis || !chart.yAxis) {
-      alert('Выберите таблицу и обе оси для генерации запроса');
-      return;
-    }
-
-    return `SELECT ${chart.xAxis}, ${chart.yAxis} FROM ${chart.selectedTable}`;
-  };
-
-  const handleExecuteQuery = () => {
-    const query = generateQuery();
-    if (query) {
-      onExecute(query, chart.id);
-    }
-  };
-
-  // Компонент для настройки отдельной серии
+// Компонент для настройки отдельной серии
 const SeriesSettings = ({ series, chart, onUpdate, onRemove, onExecute, tableNames, columnsByTable }) => {
   // Используем selectedTable из series, а не из chart
   const availableColumns = series.selectedTable ? 
@@ -273,11 +87,6 @@ const SeriesSettings = ({ series, chart, onUpdate, onRemove, onExecute, tableNam
           >
             <i className="bi bi-play-fill"></i>
           </button>
-          {isUpdating && (
-            <span className="btn btn-outline-warning" title="Серия обновляется в реальном времени">
-              <i className="bi bi-arrow-repeat"></i>
-            </span>
-          )}
           <button
             className="btn btn-outline-danger"
             onClick={onRemove}
@@ -376,58 +185,164 @@ const SeriesSettings = ({ series, chart, onUpdate, onRemove, onExecute, tableNam
   );
 };
 
+// Компонент для настройки параметров графика
+const ChartSettings = ({ 
+  chart, 
+  charts, 
+  onExecute, 
+  onSave, 
+  onDelete, 
+  tableNames,
+  columnsByTable,
+  chartSeries = {},
+  onAddSeries = () => {},
+  onRemoveSeries = () => {},
+  onUpdateSeries = () => {},
+  onExecuteQuery = () => {},
+  isUpdating,
+  onChartTitleChange = () => {}
+}) => {
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [tempTitle, setTempTitle] = useState(chart.title || '');
+
+  // Получаем доступные колонки для выбранной таблицы
+  const availableColumns = chart.selectedTable ? 
+    columnsByTable[chart.selectedTable] || [] : [];
+
+  const handleTitleSave = () => {
+    if (tempTitle.trim()) {
+      onChartTitleChange(chart.id, tempTitle.trim());
+      onSave({ ...chart, title: tempTitle.trim() });
+    }
+    setEditingTitle(false);
+  };
+
+  const handleTitleCancel = () => {
+    setTempTitle(chart.title || '');
+    setEditingTitle(false);
+  };
+
+  const handleTableChange = (tableName) => {
+    const updatedChart = {
+      ...chart,
+      selectedTable: tableName,
+      // Не сбрасываем оси, если они могут существовать в новой таблице
+      xAxis: chart.xAxis && columnsByTable[tableName]?.includes(chart.xAxis) ? chart.xAxis : '',
+      yAxis: chart.yAxis && columnsByTable[tableName]?.includes(chart.yAxis) ? chart.yAxis : ''
+    };
+    onSave(updatedChart);
+  };
+
+  const handleFieldChange = (field, value) => {
+    const updatedChart = {
+      ...chart,
+      [field]: value
+    };
+    onSave(updatedChart);
+  };
+
+  const generateQuery = () => {
+    if (!chart.selectedTable || !chart.xAxis || !chart.yAxis) {
+      alert('Выберите таблицу и обе оси для генерации запроса');
+      return;
+    }
+
+    return `SELECT ${chart.xAxis}, ${chart.yAxis} FROM ${chart.selectedTable}`;
+  };
+
+  const handleExecuteQuery = () => {
+    const query = generateQuery();
+    if (query) {
+      onExecute(query, chart.id);
+    }
+  };
+
   // Получаем серии для текущего графика
   const series = chartSeries[chart.id] || [];
 
   const handleAddSeries = () => {
-  onAddSeries(chart.id, {
-    name: `Серия ${series.length + 1}`,
-    selectedTable: chart.selectedTable || '', // Наследуем таблицу от основного графика
-    xAxis: '',
-    yAxis: '',
-    color: `hsl(${Math.random() * 360}, 70%, 60%)`,
-    width: 2,
-    style: 'solid',
-    enabled: true,
-    data: []
-  });
-};
+    onAddSeries(chart.id, {
+      name: `Серия ${series.length + 1}`,
+      selectedTable: chart.selectedTable || '',
+      xAxis: '',
+      yAxis: '',
+      color: `hsl(${Math.random() * 360}, 70%, 60%)`,
+      width: 2,
+      style: 'solid',
+      enabled: true,
+      data: []
+    });
+  };
 
   return (
     <div className="chart-settings-item p-3 mb-3 rounded bg-dark" style={{ border: '1px solid #444' }}>
       <div className="d-flex justify-content-between align-items-start mb-3">
-        <input
-          type="text"
-          className="form-control form-control-sm bg-secondary text-white border-dark me-2"
-          value={chart.name || `График ${charts.findIndex(c => c.id === chart.id) + 1}`}
-          onChange={(e) => handleFieldChange('name', e.target.value)}
-          placeholder="Название графика"
-          style={{ maxWidth: '200px' }}
-        />
-        <div className="btn-group btn-group-sm">
-          <button
-            className="btn btn-outline-success"
-            onClick={handleSave}
-            title="Сохранить настройки"
-          >
-            <i className="bi bi-check-lg"></i>
-          </button>
-          <button
-            className="btn btn-outline-primary"
-            onClick={handleExecuteQuery}
-            title="Выполнить запрос"
-            disabled={!chart.selectedTable || !chart.xAxis || !chart.yAxis}
-          >
-            <i className="bi bi-play-fill"></i>
-          </button>
-          <button
-            className="btn btn-outline-danger"
-            onClick={() => onDelete(chart.id)}
-            title="Удалить график"
-          >
-            <i className="bi bi-trash"></i>
-          </button>
-        </div>
+        {editingTitle ? (
+          <div className="d-flex align-items-center flex-grow-1 me-2">
+            <input
+              type="text"
+              className="form-control form-control-sm bg-secondary text-white border-dark me-2"
+              value={tempTitle}
+              onChange={(e) => setTempTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleTitleSave();
+                if (e.key === 'Escape') handleTitleCancel();
+              }}
+              onBlur={handleTitleSave}
+              autoFocus
+              style={{ maxWidth: '200px' }}
+            />
+            <button
+              className="btn btn-success btn-sm"
+              onClick={handleTitleSave}
+              title="Сохранить"
+            >
+              <i className="bi bi-check"></i>
+            </button>
+            <button
+              className="btn btn-secondary btn-sm ms-1"
+              onClick={handleTitleCancel}
+              title="Отменить"
+            >
+              <i className="bi bi-x"></i>
+            </button>
+          </div>
+        ) : (
+          <>
+            <span 
+              className="text-white fw-bold me-2" 
+              style={{ maxWidth: '200px', cursor: 'pointer' }}
+              onClick={() => setEditingTitle(true)}
+              title="Кликните для редактирования названия"
+            >
+              {chart.title || `График ${charts.findIndex(c => c.id === chart.id) + 1}`}
+            </span>
+            <div className="btn-group btn-group-sm">
+              <button
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setEditingTitle(true)}
+                title="Редактировать название"
+              >
+                <i className="bi bi-pencil"></i>
+              </button>
+              <button
+                className="btn btn-outline-primary"
+                onClick={handleExecuteQuery}
+                title="Выполнить запрос"
+                disabled={!chart.selectedTable || !chart.xAxis || !chart.yAxis}
+              >
+                <i className="bi bi-play-fill"></i>
+              </button>
+              <button
+                className="btn btn-outline-danger"
+                onClick={() => onDelete(chart.id)}
+                title="Удалить график"
+              >
+                <i className="bi bi-trash"></i>
+              </button>
+            </div>
+          </>
+        )}
       </div>
       
       <div className="row">
@@ -562,7 +477,7 @@ const SeriesSettings = ({ series, chart, onUpdate, onRemove, onExecute, tableNam
               <SeriesSettings
                 key={seriesItem.id}
                 series={seriesItem}
-                chart={chart} // Теперь передаем chart как пропс
+                chart={chart}
                 onUpdate={(updates) => onUpdateSeries(chart.id, seriesItem.id, updates)}
                 onRemove={() => onRemoveSeries(chart.id, seriesItem.id)}
                 onExecute={onExecuteQuery}
@@ -594,21 +509,23 @@ const SqlPanel = ({
   onUpdateToggle, 
   updatingCharts, 
   onRemoveChart, 
-  editTitleValue,
   tableNames,
   columnsByTable,
   setCharts,
   chartSeries = {},
   onAddSeries = () => console.log('addSeries not provided'),
   onRemoveSeries = () => console.log('removeSeries not provided'),
-  onUpdateSeries = () => console.log('updateSeries not provided')
+  onUpdateSeries = () => console.log('updateSeries not provided'),
+  onChartTitleChange = () => console.log('onChartTitleChange not provided'),
+  isGenerating = false,
+  onStartGeneration = () => console.log('startGeneration not provided'),
+  onStopGeneration = () => console.log('stopGeneration not provided'),
+  generationStatus = 'stopped'
 }) => {
-
   const [queryHistory, setQueryHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastError, setLastError] = useState(null);
-  const [editingCharts, setEditingCharts] = useState({}); // Новое состояние для редактируемых настроек
-  
+
   useEffect(() => {
     if (show) {
       // Инициализация при открытии панели
@@ -660,7 +577,7 @@ const SqlPanel = ({
   }, [onSelectChart]);
 
   const handleSaveSettings = useCallback((updatedChart) => {
-    // Обновляем график в состоянии charts
+    // Обновляем график в основном состоянии
     setCharts(prev => prev.map(chart => 
       chart.id === updatedChart.id ? { ...chart, ...updatedChart } : chart
     ));
@@ -687,12 +604,44 @@ const SqlPanel = ({
   if (!show) return null;
 
   return (
-    <div className="sql-panel-grafana " style={{ height: '500px' }}>
+    <div className="sql-panel-grafana" style={{ height: '500px' }}>
       <div className="sql-panel-header-grafana">
         <div className="sql-panel-title">
           <i className="bi bi-sliders me-2"></i>
           <span>Настройки графиков ({charts.length})</span>
         </div>
+        
+        {/* КНОПКИ УПРАВЛЕНИЯ ГЕНЕРАЦИЕЙ ДАННЫХ */}
+        <div className="generation-controls ms-auto me-3">
+          <div className="btn-group btn-group-sm" role="group">
+            {!isGenerating ? (
+              <button
+                className="btn btn-success"
+                onClick={onStartGeneration}
+                title="Запустить генерацию тестовых данных"
+                disabled={isGenerating}
+              >
+                <i className="bi bi-play-fill me-1"></i>
+                Запустить генерацию
+              </button>
+            ) : (
+              <button
+                className="btn btn-danger"
+                onClick={onStopGeneration}
+                title="Остановить генерацию данных"
+              >
+                <i className="bi bi-stop-fill me-1"></i>
+                Остановить
+              </button>
+            )}
+          </div>
+          
+          <span className={`badge ms-2 ${isGenerating ? 'bg-success' : 'bg-secondary'}`}>
+            <i className={`bi ${isGenerating ? 'bi-arrow-repeat' : 'bi-pause'}`}></i>
+            {isGenerating ? ' Активно' : ' Остановлено'}
+          </span>
+        </div>
+
         <div className="resize-controls">
           <button
             className="btn btn-sm btn-outline-secondary"
@@ -711,6 +660,9 @@ const SqlPanel = ({
               <div className="text-center text-muted py-4">
                 <i className="bi bi-bar-chart display-4 mb-3 text-white"></i>
                 <h6 className="text-white">Нет добавленных графиков</h6>
+                <p className="text-white-50 small mt-2">
+                  Добавьте графики и настройку генерацию данных с помощью кнопок выше
+                </p>
               </div>
             ) : (
               <div className="chart-settings-list">
@@ -724,14 +676,15 @@ const SqlPanel = ({
                     onDelete={onRemoveChart}
                     onUpdateToggle={onUpdateToggle}
                     updatingCharts={updatingCharts}
-                    editTitleValue={editTitleValue}
                     tableNames={tableNames}
                     columnsByTable={columnsByTable}
                     chartSeries={chartSeries}
                     onAddSeries={onAddSeries}
-                    onRemoveSeries={onRemoveSeries} // Добавьте эту строку
-                    onUpdateSeries={onUpdateSeries} // Добавьте эту строку
-                    onExecuteQuery={onExecuteQuery} // Добавьте эту строку
+                    onRemoveSeries={onRemoveSeries}
+                    onUpdateSeries={onUpdateSeries}
+                    onExecuteQuery={onExecuteQuery}
+                    isUpdating={updatingCharts.has(chart.id)}
+                    onChartTitleChange={onChartTitleChange}
                   />
                 ))}
               </div>
@@ -745,9 +698,9 @@ const SqlPanel = ({
               <i className="bi bi-clock-history me-2"></i>
               История запросов
             </h6>
-            <div className="query-history-grafana">
+            <div className="query-history-grafana text-white">
               {queryHistory.length === 0 ? (
-                <div className="text-muted small p-2">История запросов пуста</div>
+                <div className="text-white small p-2 ">История запросов пуста</div>
               ) : (
                 queryHistory.map((item, index) => (
                   <div
@@ -773,6 +726,33 @@ const SqlPanel = ({
               )}
             </div>
           </div>
+
+          {/* СТАТУС ГЕНЕРАЦИИ ДАННЫХ */}
+          <div className="sidebar-section mt-3">
+            <h6>
+              <i className="bi bi-database me-2"></i>
+              Статус генерации
+            </h6>
+            <div className={`p-2 rounded ${isGenerating ? 'bg-success' : 'bg-secondary'}`}>
+              <div className="d-flex align-items-center">
+                <i className={`bi ${isGenerating ? 'bi-arrow-repeat' : 'bi-pause-fill'} me-2`}></i>
+                <span className="small">
+                  {isGenerating ? 'Данные генерируются' : 'Генерация остановлена'}
+                </span>
+              </div>
+              {isGenerating && (
+                <div className="mt-1">
+                  <div className="progress" style={{ height: '4px' }}>
+                    <div 
+                      className="progress-bar progress-bar-striped progress-bar-animated" 
+                      style={{ width: '100%' }}
+                    ></div>
+                  </div>
+                  <small className="text-white-50">В реальном времени</small>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -789,12 +769,7 @@ const SqlPanel = ({
 
       <div className="sql-panel-footer-grafana">
         <div className="footer-left">
-          <small className="text-muted">
-            <i className="bi bi-info-circle me-1"></i>
-            {selectedChartId 
-              ? `Выбран график: ${charts.findIndex(c => c.id === selectedChartId) + 1}` 
-              : 'Всего графиков: ' + charts.length}
-          </small>
+          
         </div>
         <div className="footer-right">
           <button

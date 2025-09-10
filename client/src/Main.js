@@ -17,7 +17,7 @@ function Main() {
       <div className="text-center py-5 overflow-hidden">
         <h1 className="main-title text-white mb-3">
           <i className="bi bi-graph-up me-3"></i>
-          Data Visualization Platform
+          Visual Graph (Alpha Version)
         </h1>
         <p className="main-subtitle text-light opacity-75">
           Мощная платформа для анализа и визуализации данных в реальном времени

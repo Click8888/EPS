@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	//"github.com/Click8888/ElectricPowerSystem/middleware" что-то интересное
-	"EPS/routes" 
+	"EPS/routes"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -24,7 +23,6 @@ func main() {
 	}
 
 	// Инициализация БД
-	// Инициализация подключения
 	if err := database.InitDB(dbConfig); err != nil {
 		log.Fatalf("Ошибка подключения к БД: %v", err)
 	}
@@ -53,6 +51,10 @@ func main() {
 	r.GET("/api/metadata", routes.GetDatabaseMetadata)	
 	r.POST("/api/execute-query", routes.HandleSQLQuery)
 	
+	// Эндпоинты для управления генерацией данных
+	r.POST("/api/generation/start", routes.StartGenerationHandler)
+	r.POST("/api/generation/stop", routes.StopGenerationHandler)
+	r.GET("/api/generation/status", routes.GenerationStatusHandler)
 
 	// Выведите все зарегистрированные маршруты
 	fmt.Println("Registered routes:")
