@@ -230,91 +230,94 @@ useEffect(() => {
   }, []);
 
   // Обработчик SQL запросов
-  const handleExecuteQuery = useCallback(async (query, chartId = null, seriesId = null) => {
+const handleExecuteQuery = useCallback(async (query, chartId = null, seriesId = null) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/execute-query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ Sql: query })
-      });
+        const response = await fetch(`${API_BASE_URL}/execute-query`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ Sql: query })
+        });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-      const data = await response.json();
-      if (data.databases) {
-        const normalizedChartId = normalizeId(chartId);
+        const result = await response.json();
+        const data = result.databases || result;
         
-        if (normalizedChartId) {
-          let transformedData;
-          
-          if (seriesId) {
-            const tableMatch = query.match(/FROM\s+(\w+)/i);
-            const selectMatch = query.match(/SELECT\s+([^,]+),\s*([^\s]+)/i);
+        if (data && Array.isArray(data)) {
+            const normalizedChartId = normalizeId(chartId);
             
-            if (tableMatch && selectMatch) {
-              const tableName = tableMatch[1];
-              const xAxis = selectMatch[1].trim();
-              const yAxis = selectMatch[2].trim();
-              
-              transformedData = transformData(data.databases, xAxis, yAxis);
+            if (normalizedChartId) {
+                let transformedData;
+                
+                // Определяем оси для трансформации
+                let xAxis, yAxis;
+                
+                if (seriesId) {
+                    // Для дополнительных серий используем настройки серии
+                    const seriesConfig = chartSeries[normalizedChartId]?.find(s => s.id === seriesId);
+                    xAxis = seriesConfig?.xAxis;
+                    yAxis = seriesConfig?.yAxis;
+                } else {
+                    // Для основной серии используем настройки графика
+                    const chart = charts.find(c => c.id === normalizedChartId);
+                    xAxis = chart?.xAxis;
+                    yAxis = chart?.yAxis;
+                }
+                
+                transformedData = transformData(data, xAxis, yAxis);
+                
+                if (transformedData && transformedData.length > 0) {
+                    if (transformedData.length > 1500) {
+                        transformedData = transformedData.slice(-1500);
+                    }
+                    
+                    if (seriesId) {
+                        updateSeriesInChart(normalizedChartId, seriesId, { data: transformedData });
+                    } else {
+                        setCharts(prev => prev.map(chart => 
+                            chart.id === normalizedChartId 
+                                ? { ...chart, data: transformedData }
+                                : chart
+                        ));
+                    }
+                }
             }
-          } else {
-            const chart = charts.find(c => c.id === normalizedChartId);
-            transformedData = transformData(data.databases, chart?.xAxis, chart?.yAxis);
-          }
-          
-          if (transformedData && transformedData.length > 0) {
-            if (transformedData.length > 1500) {
-              transformedData = transformedData.slice(-1500);
-            }
-            
-            if (seriesId) {
-              updateSeriesInChart(normalizedChartId, seriesId, { data: transformedData });
-            } else {
-              setCharts(prev => prev.map(chart => 
-                chart.id === normalizedChartId 
-                  ? { ...chart, data: transformedData }
-                  : chart
-              ));
-            }
-          }
         }
-      }
     } catch (error) {
-      console.error("Ошибка при выполнении запроса:", error);
-      throw error;
+        console.error("Ошибка при выполнении запроса:", error);
+        throw error;
     }
-  }, [charts, setCharts]);
+}, [charts, chartSeries, setCharts]);
 
   // Функция для обновления данных конкретного графика
-  const updateChartData = useCallback(async (chartId) => {
+const updateChartData = useCallback(async (chartId) => {
     try {
-      const chart = charts.find(c => c.id === chartId);
-      if (!chart) return;
+        const chart = charts.find(c => c.id === chartId);
+        if (!chart) return;
 
-      const updatePromises = [];
+        const updatePromises = [];
 
-      // Обновляем основную серию
-      if (chart.selectedTable && chart.xAxis && chart.yAxis) {
-        const mainQuery = `SELECT ${chart.xAxis}, ${chart.yAxis} FROM ${chart.selectedTable}`;
-        updatePromises.push(handleExecuteQuery(mainQuery, chartId));
-      }
-
-      // Обновляем дополнительные серии
-      const seriesForChart = chartSeries[chartId] || [];
-      for (const series of seriesForChart) {
-        if (series.selectedTable && series.xAxis && series.yAxis) {
-          const seriesQuery = `SELECT ${series.xAxis}, ${series.yAxis} FROM ${series.selectedTable}`;
-          updatePromises.push(handleExecuteQuery(seriesQuery, chartId, series.id));
+        // Обновляем основную серию
+        if (chart.selectedTable && chart.xAxis && chart.yAxis) {
+            const mainQuery = `SELECT ${chart.xAxis}, ${chart.yAxis} FROM ${chart.selectedTable}`;
+            updatePromises.push(handleExecuteQuery(mainQuery, chartId));
         }
-      }
 
-      await Promise.all(updatePromises);
-      
+        // Обновляем дополнительные серии
+        const seriesForChart = chartSeries[chartId] || [];
+        for (const series of seriesForChart) {
+            if (series.selectedTable && series.xAxis && series.yAxis && series.enabled !== false) {
+                const seriesQuery = `SELECT ${series.xAxis}, ${series.yAxis} FROM ${series.selectedTable}`;
+                updatePromises.push(handleExecuteQuery(seriesQuery, chartId, series.id));
+            }
+        }
+
+        await Promise.all(updatePromises);
+        
     } catch (error) {
-      console.error(`Ошибка при обновлении графика ${chartId}:`, error);
+        console.error(`Ошибка при обновлении графика ${chartId}:`, error);
     }
-  }, [charts, chartSeries, handleExecuteQuery]);
+}, [charts, chartSeries, handleExecuteQuery]);
 
   // Обработчик переключения обновления графика
   const handleChartUpdateToggle = useCallback(async (chartId) => {

@@ -24,7 +24,7 @@ func GetDatabases(c *gin.Context) {
 		ID               uint
 		Measurement_time string
 		Current_value    float32
-		Voltage_value    float32 
+		Voltage_value    float32
 		Circuit_id       string
 		Sensor_model     string
 		Is_overload      bool
@@ -73,33 +73,18 @@ func HandleSQLQuery(c *gin.Context) {
 		return
 	}
 
-	// Выполняем SQL запрос
-	var databases []models.Current_measurements
-	err := database.DB.Raw(request.Query).Scan(&databases).Error
+	// Выполняем SQL запрос и получаем результат в виде map
+	var results []map[string]interface{}
+	err := database.DB.Raw(request.Query).Scan(&results).Error
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to execute query: " + err.Error()})
 		return
 	}
 
-	// ВЫВОД ДЛЯ ОТЛАДКИ - посмотрим что возвращается
-	if len(databases) > 0 {
-
-	}
-
 	// Возвращаем результаты
-	var result []models.Current_measurements
-	for _, db := range databases {
-		// var creator models.User
-		// database.DB.First(&creator, db.ID_creator)
+	c.JSON(http.StatusOK, gin.H{
+		"data": results,
+		"count": len(results),
+	})
 
-		result = append(result, models.Current_measurements{
-			ID:               db.ID,
-			Measurement_time: db.Measurement_time,
-			Current_value:    db.Current_value,
-			Voltage_value:    db.Voltage_value,
-		})
-
-	}
-
-	c.JSON(http.StatusOK, gin.H{"databases": result})
 }

@@ -198,36 +198,25 @@ const ChartsContainer = ({
                   </div>
                   
                   <div className="chart-footer">
-                    <small className="text-muted">
-                      {(chart.data || []).length} точек данных • 
-                      {chart.type === 'linear' ? ' Временной ряд' : ' Векторная диаграмма'}
-                      {chartSeriesData.length > 0 && (
-                        <span className="text-info ms-2">• {chartSeriesData.length} доп. серий</span>
-                      )}
-                      {isUpdating && <span className="text-warning ms-2">🔄 Обновляется...</span>}
-                      {(chart.data || []).length >= 1500 && (
-                        <span className="text-info ms-2">ⓘ Лимит: 1500 точек</span>
-                      )}
-                    </small>
                     
                     {/* Статус дополнительных серий */}
                     {chartSeriesData.length > 0 && (
-                      <div className="series-status-list mt-2">
-                        {chartSeriesData.map(seriesItem => (
-                          <div key={seriesItem.id} className="series-status">
-                            <small className={isUpdating ? "text-warning" : "text-muted"}>
-                              <i className="bi bi-circle-fill me-1" style={{ 
-                                color: seriesItem.color || '#ff0000',
-                                fontSize: '0.6rem'
-                              }}></i>
-                              {seriesItem.name}: {seriesItem.data?.length || 0} точек
-                              {isUpdating && " 🔄"}
-                            </small>
-                          </div>
-                        ))}
-                      </div>
+                        <div className="series-status-list mt-2">
+                            {chartSeriesData.map(seriesItem => (
+                                <div key={seriesItem.id} className="series-status">
+                                    <small className={isUpdating ? "text-warning" : "text-muted"}>
+                                        <i className="bi bi-circle-fill me-1" style={{ 
+                                            color: seriesItem.color || '#ff0000',
+                                            fontSize: '0.6rem'
+                                        }}></i>
+                                        {seriesItem.name}: {seriesItem.data?.length || 0} точек
+                                        {isUpdating && " 🔄"}
+                                    </small>
+                                </div>
+                            ))}
+                        </div>
                     )}
-                  </div>
+                </div>
                 </div>
               </div>
             );

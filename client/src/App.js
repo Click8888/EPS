@@ -6,6 +6,7 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import Navbar from './components/Navbar';
 import Graph from './Graph.js';
 import Main from './Main.js';
+import Admin from './Admin.js';
 
 function App() {
   return(
@@ -16,6 +17,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Main />} />
           <Route path="/graph" element={<Graph />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
         
     </div>

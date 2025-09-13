@@ -59,38 +59,56 @@ export const Chart = props => {
     };
 
     // Функция для обработки и валидации данных
-    const processChartData = (rawData) => {
-        if (!rawData || rawData.length === 0) return [];
+const processChartData = (rawData) => {
+    if (!rawData || !Array.isArray(rawData) || rawData.length === 0) return [];
 
-        const uniqueDataMap = new Map();
-        
-        rawData.forEach(item => {
+    // Используем массив для сохранения порядка
+    const validData = [];
+    
+    rawData.forEach(item => {
+        try {
             // Проверяем, что item не null/undefined и имеет необходимые поля
             if (item && item.time !== null && item.time !== undefined && 
                 item.value !== null && item.value !== undefined) {
                 
                 const timeInSeconds = timeToSeconds(item.time);
-                // Проверяем, что значение не null/undefined перед преобразованием
                 const numericValue = parseFloat(item.value);
                 
-                if (!isNaN(numericValue)) {
-                    uniqueDataMap.set(timeInSeconds, {
+                if (!isNaN(numericValue) && !isNaN(timeInSeconds)) {
+                    validData.push({
                         time: timeInSeconds,
                         value: numericValue
                     });
                 }
             }
-        });
-
-        let uniqueData = Array.from(uniqueDataMap.values());
-        uniqueData.sort((a, b) => a.time - b.time);
-
-        if (uniqueData.length > 1500) {
-            uniqueData = uniqueData.slice(-1500);
+        } catch (error) {
+            console.warn('Ошибка при обработке элемента данных:', error, item);
         }
+    });
 
-        return uniqueData;
-    };
+    // Сортируем по времени
+    validData.sort((a, b) => a.time - b.time);
+
+    // Удаляем дубликаты по времени (сохраняем последнее значение)
+    const uniqueData = [];
+    const seenTimes = new Set();
+    
+    // Проходим с конца чтобы сохранять последние значения
+    for (let i = validData.length - 1; i >= 0; i--) {
+        const item = validData[i];
+        if (!seenTimes.has(item.time)) {
+            seenTimes.add(item.time);
+            uniqueData.unshift(item); // Добавляем в начало чтобы сохранить порядок
+        }
+    }
+
+    // Ограничиваем количество точек до 1500, сохраняя самые новые
+    if (uniqueData.length > 1500) {
+        return uniqueData.slice(-1500);
+    }
+
+    return uniqueData;
+};
 
     // Эффект для создания графика
     useEffect(() => {
@@ -278,78 +296,51 @@ export const Chart = props => {
 
     }, [series, lineColor]);
 
-    // Эффект для обновления данных основной серии
-    useEffect(() => {
-        const mainSeries = seriesMapRef.current.get('main');
-        if (!mainSeries) {
-            console.warn('Main series not found in seriesMap');
-            return;
-        }
-
+    // Эффект для обновления данных всех серий
+useEffect(() => {
+    const seriesMap = seriesMapRef.current;
+    
+    // Обновляем основную серию
+    const mainSeries = seriesMap.get('main');
+    if (mainSeries) {
         if (data && data.length > 0) {
-            // Используем debounce для уменьшения частоты обновлений
-            const timeoutId = setTimeout(() => {
-                try {
-                    isUpdatingRef.current = true;
-                    
-                    const processedData = processChartData(data);
-                    console.log('Updating main series with:', processedData.length, 'points');
-                    
-                    // Дополнительная проверка на пустые данные
-                    if (processedData && processedData.length > 0) {
-                        // Фильтруем любые возможные null значения
-                        const filteredData = processedData.filter(item => 
-                            item !== null && 
-                            item.time !== null && 
-                            item.value !== null &&
-                            !isNaN(item.value)
-                        );
-                        
-                        if (filteredData.length > 0) {
-                            // Безопасное обновление данных
-                            try {
-                                mainSeries.setData(filteredData);
-                                lastDataRef.current = filteredData;
-                            } catch (updateError) {
-                                console.error('Ошибка при установке данных:', updateError);
-                                // В случае ошибки пробуем установить пустые данные
-                                try {
-                                    mainSeries.setData([]);
-                                } catch (cleanupError) {
-                                    console.error('Ошибка при очистке данных:', cleanupError);
-                                }
-                            }
-                        } else {
-                            console.warn('Все данные отфильтрованы как null, очищаем серию');
-                            mainSeries.setData([]);
-                        }
-                    } else {
-                        console.warn('Нет обработанных данных для отображения');
-                        mainSeries.setData([]);
-                    }
-                } catch (error) {
-                    console.error('Ошибка при обновлении данных основной серии:', error);
-                    // В случае ошибки очищаем данные чтобы избежать дальнейших проблем
-                    try {
-                        mainSeries.setData([]);
-                    } catch (cleanupError) {
-                        console.error('Ошибка при очистке данных после сбоя:', cleanupError);
-                    }
-                } finally {
-                    isUpdatingRef.current = false;
-                }
-            }, 100); // Увеличиваем задержку для стабильности
-
-            return () => clearTimeout(timeoutId);
-        } else {
-            // Очищаем данные если их нет
-            try {
+            const processedData = processChartData(data);
+            if (processedData && processedData.length > 0) {
+                const finalData = processedData.length > 1500 
+                    ? processedData.slice(-1500) 
+                    : processedData;
+                mainSeries.setData(finalData);
+            } else {
                 mainSeries.setData([]);
-            } catch (error) {
-                console.error('Ошибка при очистке данных:', error);
+            }
+        } else {
+            mainSeries.setData([]);
+        }
+    }
+
+    // Обновляем дополнительные серии
+    series.forEach(seriesItem => {
+        if (seriesItem.enabled !== false) {
+            const seriesKey = `series-${seriesItem.id}`;
+            const seriesInstance = seriesMap.get(seriesKey);
+            
+            if (seriesInstance && seriesItem.data && seriesItem.data.length > 0) {
+                const processedSeriesData = processChartData(seriesItem.data);
+                if (processedSeriesData && processedSeriesData.length > 0) {
+                    const finalSeriesData = processedSeriesData.length > 1500 
+                        ? processedSeriesData.slice(-1500) 
+                        : processedSeriesData;
+                    seriesInstance.setData(finalSeriesData);
+                } else {
+                    seriesInstance.setData([]);
+                }
+            } else if (seriesInstance) {
+                seriesInstance.setData([]);
             }
         }
-    }, [data, isUpdating]);
+    });
+
+}, [data, series, isUpdating]); // Добавляем series в зависимости
 
     // Эффект для обработки изменений размеров
     useEffect(() => {

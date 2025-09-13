@@ -83,7 +83,7 @@ function Main() {
                     </div>
                     <h5 className="card-title text-white">Множественные графики</h5>
                     <p className="card-text text-light opacity-75">
-                      До 6 одновременных графиков с Drag&Drop перестановкой (В БУДУЩЕМ)
+                      До 6 одновременных графиков с Drag&Drop перестановкой
                     </p>
                   </div>
                 </div>

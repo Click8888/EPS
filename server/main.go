@@ -56,6 +56,14 @@ func main() {
 	r.POST("/api/generation/stop", routes.StopGenerationHandler)
 	r.GET("/api/generation/status", routes.GenerationStatusHandler)
 
+	// Эндпоинты для управления генерацией данных
+	r.POST("/api/deltable", routes.DeleteTable)
+	r.POST("/api/addrow", routes.AddRow)
+	r.POST("/api/delrow", routes.DeleteRow)
+	r.POST("/api/updaterow", routes.UpdateRow)
+	r.POST("/api/downldata", routes.DownloadData)
+	r.POST("/api/sqlquery", routes.SqlQuery)
+
 	// Выведите все зарегистрированные маршруты
 	fmt.Println("Registered routes:")
 	for _, route := range r.Routes() {
